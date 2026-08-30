@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { prisma } from "../../config/prisma";
+import { prisma } from "@commitly/db";
 import { signToken } from "../../utils/jwt";
 import type { RegisterInput, LoginInput } from "./auth.validation";
 
