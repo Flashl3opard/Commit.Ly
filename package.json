@@ -1,0 +1,12 @@
+{
+  "name": "commitly",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:auth": "npm run dev -w services/auth-service"
+  }
+}
