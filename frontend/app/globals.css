@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #06080b;
+  --background-2: #0c1117;
+  --background-3: #111820;
+  --foreground: #f4f7fb;
+  --muted: #8a97a8;
+  --muted-2: #5c6779;
+  --border: rgba(148, 199, 224, 0.14);
+  --border-strong: rgba(148, 199, 224, 0.28);
+  --surface: rgba(17, 24, 32, 0.6);
+  --surface-solid: #0f151c;
+  --accent: #22d3ee;
+  --accent-2: #3b82f6;
+  --accent-foreground: #04121a;
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.1);
+  --danger-border: rgba(248, 113, 113, 0.3);
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --success-border: rgba(52, 211, 153, 0.3);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-2: var(--background-2);
+  --color-background-3: var(--background-3);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: var(--foreground);
+}
+
+/* Reusable surface treatments */
+.glass-panel {
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(148, 199, 224, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 199, 224, 0.05) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
