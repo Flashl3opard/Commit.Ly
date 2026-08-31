@@ -8,5 +8,12 @@
   ],
   "scripts": {
     "dev:auth": "npm run dev -w services/auth-service"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "bcrypt@6.0.0": true,
+    "esbuild@0.28.2": true
   }
 }
