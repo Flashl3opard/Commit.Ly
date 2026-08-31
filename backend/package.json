@@ -1,40 +1,13 @@
 {
-  "name": "backend",
+  "name": "commitly-backend",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/server.js",
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "prisma skills sync || exit 0"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "zod": "^4.5.4"
-  },
-  "devDependencies": {
-    "@prisma/client": "^6.19.3",
-    "@types/bcrypt": "^6.0.0",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^26.4.0",
-    "nodemon": "^3.1.14",
-    "prisma": "^6.19.3",
-    "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "dev:auth": "npm run dev -w services/auth-service"
   },
   "allowScripts": {
     "prisma@6.19.3": true,
