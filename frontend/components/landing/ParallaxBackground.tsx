@@ -70,8 +70,7 @@ export function ParallaxBackground() {
         className="absolute inset-0"
         style={{
           y: gradientY,
-          background:
-            "radial-gradient(ellipse 900px 550px at 65% 25%, rgba(34,211,238,0.08), transparent 65%), linear-gradient(180deg, #06080b, #0c1117)",
+          background: "var(--hero-bg-gradient)",
         }}
       />
       <motion.div className="bg-grid absolute -inset-x-10 -inset-y-10 opacity-40" style={{ y: gridY }} />

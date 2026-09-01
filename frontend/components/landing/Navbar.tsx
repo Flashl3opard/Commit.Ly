@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
   { label: "Docs", href: "#" },
-  { label: "Pricing", href: "#" },
   { label: "About", href: "#" },
 ];
 
@@ -55,6 +53,7 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
           <Link
             href="/login"
             className="focus-ring rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"

@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRedirectByAuth } from "@/lib/auth/useRedirectByAuth";
 import { AuthLayout } from "@/components/auth/AuthLayout";
+import { LoginVisual } from "@/components/auth/LoginVisual";
 import { FormField } from "@/components/ui/FormField";
 
 export default function LoginPage() {
@@ -70,6 +71,8 @@ export default function LoginPage() {
           </Link>
         </>
       }
+      side={<LoginVisual />}
+      sidePosition="left"
     >
       <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
         <FormField

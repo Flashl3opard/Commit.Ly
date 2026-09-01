@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ProfileMenu } from "./ProfileMenu";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { PrivateUser } from "@/lib/api/types";
 
 const APP_LINKS = [
@@ -46,6 +47,7 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <button
             type="button"
             aria-label="Notifications"

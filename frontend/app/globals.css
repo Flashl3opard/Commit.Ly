@@ -20,6 +20,44 @@
   --success: #34d399;
   --success-bg: rgba(52, 211, 153, 0.1);
   --success-border: rgba(52, 211, 153, 0.3);
+  --grid-line: rgba(148, 199, 224, 0.05);
+  --auth-bg-gradient:
+    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(34, 211, 238, 0.09), transparent 60%),
+    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(59, 130, 246, 0.07), transparent 60%),
+    linear-gradient(180deg, #06080b, #0c1117);
+  --hero-bg-gradient:
+    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(34, 211, 238, 0.08), transparent 65%),
+    linear-gradient(180deg, #06080b, #0c1117);
+}
+
+:root[data-theme="light"] {
+  --hero-bg-gradient:
+    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(8, 145, 178, 0.08), transparent 65%),
+    linear-gradient(180deg, #f7f9fc, #eef2f7);
+  --background: #f7f9fc;
+  --background-2: #ffffff;
+  --background-3: #eef2f7;
+  --foreground: #10151c;
+  --muted: #5b6472;
+  --muted-2: #8892a0;
+  --border: rgba(15, 35, 55, 0.1);
+  --border-strong: rgba(15, 35, 55, 0.18);
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --accent: #0891b2;
+  --accent-2: #2563eb;
+  --accent-foreground: #ffffff;
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.25);
+  --success: #059669;
+  --success-bg: rgba(5, 150, 105, 0.08);
+  --success-border: rgba(5, 150, 105, 0.25);
+  --grid-line: rgba(15, 35, 55, 0.05);
+  --auth-bg-gradient:
+    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.08), transparent 60%),
+    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.06), transparent 60%),
+    linear-gradient(180deg, #f7f9fc, #eef2f7);
 }
 
 @theme inline {
@@ -54,10 +92,15 @@ html {
   color-scheme: dark;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::selection {
@@ -82,8 +125,8 @@ body {
 
 .bg-grid {
   background-image:
-    linear-gradient(rgba(148, 199, 224, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 199, 224, 0.05) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 46px 46px;
 }
 

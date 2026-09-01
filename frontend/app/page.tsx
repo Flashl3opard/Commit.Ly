@@ -22,30 +22,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <div className="flex flex-wrap items-center gap-4">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={user.avatarUrl}
-                  alt=""
-                  className="h-12 w-12 rounded-full border border-border-strong object-cover"
-                />
-              ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border-strong bg-linear-to-br from-accent/20 to-accent-2/20 font-mono text-lg text-accent">
-                  {user.username.slice(0, 1).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                  Welcome back, {user.username}.
-                </h1>
-                <p className="text-sm text-muted">
-                  {user.customStatus ?? "No status set."}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {STATS.map((stat, index) => (
                 <motion.div
                   key={stat.label}

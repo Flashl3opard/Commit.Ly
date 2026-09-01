@@ -81,7 +81,7 @@ export function BranchVisual() {
             cx={node.cx}
             cy={node.cy}
             r="6"
-            fill="#0c1117"
+            fill="var(--background-2)"
             stroke="#22d3ee"
             strokeWidth="2"
             initial={{ scale: 0, opacity: 0 }}

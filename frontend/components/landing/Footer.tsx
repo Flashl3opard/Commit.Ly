@@ -1,7 +1,7 @@
 const COLUMNS = [
   {
     title: "Product",
-    links: ["Features", "Docs", "Pricing"],
+    links: ["Docs"],
   },
   {
     title: "Company",

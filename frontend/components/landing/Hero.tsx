@@ -42,10 +42,10 @@ export function Hero() {
                 <span aria-hidden="true">→</span>
               </Link>
               <Link
-                href="#preview"
+                href="/login"
                 className="focus-ring inline-flex items-center justify-center rounded-lg border border-border-strong px-6 py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
               >
-                Explore Commit.ly
+                Sign In
               </Link>
             </div>
           </motion.div>
