@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
+import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { PrivateUser } from "@/lib/api/types";
 
@@ -53,9 +54,7 @@ export function ProfileMenu({ user }: { user: PrivateUser }) {
           </span>
         )}
         <span className="hidden text-sm font-medium text-foreground sm:inline">{user.username}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-2">
-          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronDown className="h-3.5 w-3.5 text-muted-2" strokeWidth={2} aria-hidden="true" />
       </button>
 
       <AnimatePresence>
@@ -72,16 +71,18 @@ export function ProfileMenu({ user }: { user: PrivateUser }) {
               href="/profile"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
+              className="focus-ring flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
             >
+              <User className="h-4 w-4 text-muted-2" aria-hidden="true" />
               Profile
             </Link>
             <Link
               href="/profile/edit"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
+              className="focus-ring flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
             >
+              <Settings className="h-4 w-4 text-muted-2" aria-hidden="true" />
               Settings
             </Link>
             <div className="my-1 border-t border-border" />
@@ -90,8 +91,9 @@ export function ProfileMenu({ user }: { user: PrivateUser }) {
               role="menuitem"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="focus-ring block w-full rounded-lg px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger-bg disabled:opacity-60"
+              className="focus-ring flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-danger transition-colors hover:bg-danger-bg disabled:opacity-60"
             >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
               {loggingOut ? "Logging out…" : "Logout"}
             </button>
           </motion.div>

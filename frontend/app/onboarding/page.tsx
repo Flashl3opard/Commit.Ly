@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { updateCurrentUser } from "@/lib/api/users";
@@ -27,6 +27,14 @@ function isValidUrl(value: string): boolean {
 }
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingPageContent />
+    </Suspense>
+  );
+}
+
+function OnboardingPageContent() {
   const { status } = useRedirectByAuth({ whenUnauthenticated: "/login", whenCompleteProfile: "/" });
   const { user, setUser } = useAuth();
   const router = useRouter();

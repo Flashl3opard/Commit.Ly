@@ -1,18 +1,9 @@
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import type { PrivateUser } from "@/lib/api/types";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { GithubVerifiedBadge } from "@/components/ui/GithubVerifiedBadge";
 import { GithubConnectionSection } from "./GithubConnectionSection";
-
-function VerifiedBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 font-mono text-xs text-accent">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      GitHub Verified
-    </span>
-  );
-}
 
 export function ProfileCard({ user }: { user: PrivateUser }) {
   const displayName = user.displayName ?? user.username;
@@ -22,11 +13,11 @@ export function ProfileCard({ user }: { user: PrivateUser }) {
       <div className="flex items-center gap-5">
         <UserAvatar avatarUrl={user.avatarUrl} username={user.username} size="xl" />
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h1>
-            {user.githubVerified && <VerifiedBadge />}
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{displayName}</h1>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-muted-2">@{user.username}</p>
+            {user.githubVerified && <GithubVerifiedBadge />}
           </div>
-          <p className="text-sm text-muted-2">@{user.username}</p>
           <p className="mt-0.5 text-sm text-muted">{user.email}</p>
         </div>
       </div>
@@ -70,6 +61,7 @@ export function ProfileCard({ user }: { user: PrivateUser }) {
           href="/profile/edit"
           className="focus-ring inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-accent-foreground transition-transform hover:scale-[1.02]"
         >
+          <Pencil className="h-4 w-4" aria-hidden="true" />
           Edit Profile
         </Link>
       </div>

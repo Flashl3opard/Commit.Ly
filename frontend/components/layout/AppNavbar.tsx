@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Bell } from "lucide-react";
 import { ProfileMenu } from "./ProfileMenu";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { PrivateUser } from "@/lib/api/types";
@@ -50,17 +51,11 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
           <ThemeToggle />
           <button
             type="button"
+            title="Notifications"
             aria-label="Notifications"
             className="focus-ring relative rounded-lg p-2 text-muted transition-colors hover:bg-white/5 hover:text-foreground"
           >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path
-                d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M13.73 21a2 2 0 01-3.46 0" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Bell className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
           <ProfileMenu user={user} />
         </div>
