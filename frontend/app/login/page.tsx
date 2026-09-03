@@ -14,7 +14,7 @@ import { LoginVisual } from "@/components/auth/LoginVisual";
 import { FormField } from "@/components/ui/FormField";
 
 export default function LoginPage() {
-  const { status } = useRedirectByAuth({ whenAuthenticated: "/" });
+  const { status } = useRedirectByAuth({ whenIncompleteProfile: "/onboarding", whenCompleteProfile: "/" });
   const { setUser } = useAuth();
   const router = useRouter();
 
@@ -36,15 +36,17 @@ export default function LoginPage() {
     try {
       await login({ email: email.trim(), password });
 
+      let profileCompleted = false;
       try {
         const { user } = await getCurrentUser();
         setUser(user);
+        profileCompleted = user.profileCompleted;
       } catch {
         // Login succeeded even if this follow-up lookup fails;
         // AuthProvider will resolve the real state on next render.
       }
 
-      router.replace("/");
+      router.replace(profileCompleted ? "/" : "/onboarding");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setFormError("Invalid email or password");

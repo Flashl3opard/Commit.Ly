@@ -8,12 +8,34 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
+  id           String  @id @default(uuid())
+  username     String  @unique
+  displayName  String?
+  email        String  @unique
   passwordHash String
   avatarUrl    String?
+  bio          String?
+  role         String?
+  location     String?
   customStatus String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  githubId       String? @unique
+  githubUsername String?
+  githubVerified Boolean @default(false)
+
+  profileCompleted Boolean @default(false)
+
+  skills UserSkill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserSkill {
+  id     String @id @default(uuid())
+  userId String
+  skill  String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skill])
 }
