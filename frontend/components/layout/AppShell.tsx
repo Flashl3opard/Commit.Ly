@@ -11,7 +11,10 @@ import { AppNavbar } from "./AppNavbar";
  * once a user is available.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { status } = useRedirectByAuth({ whenUnauthenticated: "/home" });
+  const { status } = useRedirectByAuth({
+    whenUnauthenticated: "/home",
+    whenIncompleteProfile: "/onboarding",
+  });
   const { user } = useAuth();
 
   if (status === "loading" || status === "unauthenticated" || !user) {

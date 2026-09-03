@@ -49,7 +49,7 @@ function validate(values: {
 }
 
 export default function SignupPage() {
-  const { status } = useRedirectByAuth({ whenAuthenticated: "/" });
+  const { status } = useRedirectByAuth({ whenIncompleteProfile: "/onboarding", whenCompleteProfile: "/" });
   const { setUser } = useAuth();
   const router = useRouter();
 
@@ -75,15 +75,17 @@ export default function SignupPage() {
     try {
       await register({ username: username.trim(), email: email.trim(), password });
 
+      let profileCompleted = false;
       try {
         const { user } = await getCurrentUser();
         setUser(user);
+        profileCompleted = user.profileCompleted;
       } catch {
         // Registration succeeded even if this follow-up lookup fails;
         // AuthProvider will resolve the real state on next render.
       }
 
-      router.replace("/");
+      router.replace(profileCompleted ? "/" : "/onboarding");
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 400) {
