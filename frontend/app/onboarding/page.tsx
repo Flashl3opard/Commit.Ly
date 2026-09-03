@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { updateCurrentUser } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/types";
@@ -30,15 +30,19 @@ export default function OnboardingPage() {
   const { status } = useRedirectByAuth({ whenUnauthenticated: "/login", whenCompleteProfile: "/" });
   const { user, setUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [step, setStep] = useState(0);
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [bio, setBio] = useState("");
-  const [role, setRole] = useState("");
-  const [location, setLocation] = useState("");
-  const [skills, setSkills] = useState<string[]>([]);
+  // Returning from the GitHub OAuth redirect lands back here with a fresh
+  // mount (in-progress step state is lost) — jump straight back to the
+  // GitHub step instead of dropping the user at step 0.
+  const [step, setStep] = useState(() => (searchParams.get("github") ? 3 : 0));
+  const [displayName, setDisplayName] = useState(() => user?.displayName ?? "");
+  const [username, setUsername] = useState(() => user?.username ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(() => user?.avatarUrl ?? "");
+  const [bio, setBio] = useState(() => user?.bio ?? "");
+  const [role, setRole] = useState(() => user?.role ?? "");
+  const [location, setLocation] = useState(() => user?.location ?? "");
+  const [skills, setSkills] = useState<string[]>(() => user?.skills ?? []);
 
   const [identityErrors, setIdentityErrors] = useState<IdentityFieldErrors>({});
   const [aboutErrors, setAboutErrors] = useState<AboutFieldErrors>({});

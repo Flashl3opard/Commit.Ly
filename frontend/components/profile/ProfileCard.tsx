@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PrivateUser } from "@/lib/api/types";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { GithubConnectionSection } from "./GithubConnectionSection";
 
 function VerifiedBadge() {
   return (
@@ -58,6 +59,10 @@ export function ProfileCard({ user }: { user: PrivateUser }) {
         <p className="mt-1.5 text-sm text-foreground">
           {user.customStatus ?? <span className="text-muted">No status set.</span>}
         </p>
+      </div>
+
+      <div className="mt-6">
+        <GithubConnectionSection />
       </div>
 
       <div className="mt-8">
