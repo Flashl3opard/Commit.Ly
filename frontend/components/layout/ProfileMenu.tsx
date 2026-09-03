@@ -4,14 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { logout as logoutRequest } from "@/lib/api/auth";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { PrivateUser } from "@/lib/api/types";
 
 export function ProfileMenu({ user }: { user: PrivateUser }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const { setUser } = useAuth();
+  const { logout } = useAuth();
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -27,16 +26,9 @@ export function ProfileMenu({ user }: { user: PrivateUser }) {
 
   async function handleLogout() {
     setLoggingOut(true);
-    try {
-      await logoutRequest();
-    } catch {
-      // Even if the request fails, clear local state and send the user to
-      // the public landing page — the next /users/me check is the real
-      // source of truth for whether they're still authenticated.
-    } finally {
-      setUser(null);
-      router.replace("/home");
-    }
+    await logout();
+    setLoggingOut(false);
+    router.replace("/login");
   }
 
   return (

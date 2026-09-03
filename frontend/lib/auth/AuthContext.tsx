@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/api/users";
+import { logout as logoutRequest } from "@/lib/api/auth";
+import { setUnauthorizedHandler } from "@/lib/api/client";
 import type { PrivateUser } from "@/lib/api/types";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -9,8 +11,9 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 type AuthContextValue = {
   user: PrivateUser | null;
   status: AuthStatus;
-  refresh: () => Promise<PrivateUser | null>;
+  refreshSession: () => Promise<PrivateUser | null>;
   setUser: (user: PrivateUser | null) => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -19,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PrivateUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
 
-  const refresh = useCallback(async () => {
+  const refreshSession = useCallback(async () => {
     try {
       const { user: currentUser } = await getCurrentUser();
       setUser(currentUser);
@@ -30,6 +33,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
       return null;
     }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await logoutRequest();
+    } catch {
+      // Even if the request fails, the local session is cleared below —
+      // the next protected request (or /users/me on reload) is the real
+      // source of truth for whether the cookie actually got cleared.
+    } finally {
+      setUser(null);
+      setStatus("unauthenticated");
+    }
+  }, []);
+
+  // Any protected request coming back 401 (e.g. an expired JWT mid-session)
+  // clears session state the same way an expired bootstrap check would.
+  // Redirecting away from protected pages stays the job of each page's own
+  // useRedirectByAuth, so there's exactly one place that decides "go to
+  // /login" — no competing redirect logic, no loop risk.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      setStatus("unauthenticated");
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   useEffect(() => {
@@ -55,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, refresh, setUser }}>
+    <AuthContext.Provider value={{ user, status, refreshSession, setUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

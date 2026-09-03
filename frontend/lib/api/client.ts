@@ -5,6 +5,18 @@ type RequestOptions = {
   body?: unknown;
 };
 
+/**
+ * Called whenever any request to a protected endpoint comes back 401,
+ * so a single place (AuthContext) can clear session state and redirect
+ * instead of every call site re-implementing the same check. Registered
+ * by AuthProvider on mount; a no-op until then.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler;
+}
+
 async function request<T>(baseUrl: string, path: string, options: RequestOptions = {}): Promise<T> {
   let response: Response;
 
@@ -30,6 +42,10 @@ async function request<T>(baseUrl: string, path: string, options: RequestOptions
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
+
     const message =
       (data as { error?: string } | null)?.error ?? "Something went wrong. Please try again.";
     throw new ApiError(message, response.status, (data as { details?: unknown } | null)?.details);

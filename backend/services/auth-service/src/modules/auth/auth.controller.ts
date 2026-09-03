@@ -2,16 +2,20 @@ import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { registerSchema, loginSchema } from "./auth.validation";
 import { registerUser, loginUser, getUserById } from "./auth.service";
+import { getSessionMaxAgeMs } from "../../utils/jwt";
 
 const COOKIE_NAME = "token";
-const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const COOKIE_PATH = "/";
 
 function setAuthCookie(res: Response, token: string) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: COOKIE_MAX_AGE_MS,
+    path: COOKIE_PATH,
+    // Kept in lockstep with the JWT's own expiration (see getSessionMaxAgeMs)
+    // so the cookie never outlives, or expires ahead of, the token it carries.
+    maxAge: getSessionMaxAgeMs(),
   });
 }
 
@@ -68,6 +72,7 @@ export async function logout(_req: Request, res: Response) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    path: COOKIE_PATH,
   });
   return res.status(200).json({ message: "Logged out" });
 }
