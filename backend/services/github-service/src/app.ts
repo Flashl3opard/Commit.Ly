@@ -1,8 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import userRoutes from "./modules/user/user.routes";
-import internalRoutes from "./modules/internal/internal.routes";
+import githubRoutes from "./modules/github/github.routes";
 
 const app = express();
 
@@ -15,8 +14,7 @@ app.use(
   })
 );
 
-app.use("/users", userRoutes);
-app.use("/internal", internalRoutes);
+app.use("/github", githubRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });

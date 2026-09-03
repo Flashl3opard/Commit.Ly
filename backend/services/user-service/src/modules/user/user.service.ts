@@ -124,3 +124,38 @@ export async function getPublicProfileById(id: string): Promise<PublicProfile | 
   const user = await prisma.user.findUnique({ where: { id }, include: { skills: true } });
   return user ? toPublicProfile(user) : null;
 }
+
+/**
+ * Links a verified GitHub identity to a Commit.ly user. Only callable via
+ * the internal service boundary (see internalServiceMiddleware) — never
+ * reachable from a normal profile update.
+ */
+export async function linkGithubIdentity(
+  userId: string,
+  githubId: string,
+  githubUsername: string,
+): Promise<PrivateUser> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { githubId, githubUsername, githubVerified: true },
+    include: { skills: true },
+  });
+  return toPrivateUser(user);
+}
+
+/**
+ * Removes a linked GitHub identity from a Commit.ly user. Only callable via
+ * the internal service boundary.
+ */
+export async function unlinkGithubIdentity(userId: string): Promise<PrivateUser> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { githubId: null, githubUsername: null, githubVerified: false },
+    include: { skills: true },
+  });
+  return toPrivateUser(user);
+}
+
+export async function getUserByGithubId(githubId: string): Promise<{ id: string } | null> {
+  return prisma.user.findUnique({ where: { githubId }, select: { id: true } });
+}

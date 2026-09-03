@@ -53,3 +53,11 @@ export function userRequest<T>(path: string, options?: RequestOptions): Promise<
   }
   return request<T>(baseUrl, path, options);
 }
+
+export function githubRequest<T>(path: string, options?: RequestOptions): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_GITHUB_API_URL;
+  if (!baseUrl) {
+    throw new ApiError("GitHub service URL is not configured.", 0);
+  }
+  return request<T>(baseUrl, path, options);
+}
