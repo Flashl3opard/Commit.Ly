@@ -9,7 +9,7 @@ import type { PrivateUser } from "@/lib/api/types";
 
 const APP_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Rooms", href: "#" },
+  { label: "Rooms", href: "/rooms" },
   { label: "Messages", href: "#" },
   { label: "GitHub", href: "#" },
   { label: "Activity", href: "#" },
@@ -29,7 +29,8 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
 
           <nav className="hidden items-center gap-1 lg:flex">
             {APP_LINKS.map((link) => {
-              const isActive = link.href === pathname;
+              const isActive =
+                link.href === "/" ? pathname === "/" : link.href !== "#" && pathname.startsWith(link.href);
               return (
                 <Link
                   key={link.label}

@@ -77,3 +77,11 @@ export function githubRequest<T>(path: string, options?: RequestOptions): Promis
   }
   return request<T>(baseUrl, path, options);
 }
+
+export function roomRequest<T>(path: string, options?: RequestOptions): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_ROOM_API_URL;
+  if (!baseUrl) {
+    throw new ApiError("Room service URL is not configured.", 0);
+  }
+  return request<T>(baseUrl, path, options);
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { RoomsProvider } from "@/lib/rooms/RoomsContext";
 import { ThemeProvider } from "@/lib/theme/ThemeContext";
 import "./globals.css";
 
@@ -42,7 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {THEME_INIT_SCRIPT}
         </Script>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <RoomsProvider>{children}</RoomsProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
