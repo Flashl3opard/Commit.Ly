@@ -24,12 +24,12 @@ const RoomsContext = createContext<RoomsContextValue | null>(null);
 export function RoomsProvider({ children }: { children: ReactNode }) {
   const { status } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchState, setFetchState] = useState<"idle" | "loading" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const fetchedForSession = useRef(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    setFetchState("loading");
     setError(null);
     try {
       const { rooms: fetched } = await getMyRooms();
@@ -37,7 +37,7 @@ export function RoomsProvider({ children }: { children: ReactNode }) {
     } catch {
       setError("Couldn't load your rooms. Check that Room Service is running.");
     } finally {
-      setLoading(false);
+      setFetchState("done");
     }
   }, []);
 
@@ -48,8 +48,6 @@ export function RoomsProvider({ children }: { children: ReactNode }) {
     }
     if (status === "unauthenticated") {
       fetchedForSession.current = false;
-      setRooms([]);
-      setLoading(false);
     }
   }, [status, refresh]);
 
@@ -61,8 +59,16 @@ export function RoomsProvider({ children }: { children: ReactNode }) {
     setRooms((prev) => prev.filter((room) => room.id !== roomId));
   }, []);
 
+  // Derived rather than synced via effect: an unauthenticated session has no
+  // rooms and nothing in flight, regardless of what the last fetch left behind.
+  // "idle" while authenticated still counts as loading — the fetch effect
+  // hasn't run yet on this render, not "there are no rooms".
+  const isUnauthenticated = status === "unauthenticated";
+  const visibleRooms = isUnauthenticated ? [] : rooms;
+  const loading = !isUnauthenticated && fetchState !== "done";
+
   return (
-    <RoomsContext.Provider value={{ rooms, loading, error, refresh, addRoom, removeRoom }}>
+    <RoomsContext.Provider value={{ rooms: visibleRooms, loading, error, refresh, addRoom, removeRoom }}>
       {children}
     </RoomsContext.Provider>
   );
