@@ -121,3 +121,31 @@ model RoomMember {
 
   @@unique([roomId, userId])
 }
+
+// Owned by Chat Service. roomId/userId are deliberately plain fields, not
+// Prisma relations — Room and User are owned by Room Service/User Service
+// respectively, and Chat Service treats them as external identifiers
+// verified over HTTP (Room Service's internal membership endpoint), not
+// as foreign keys. This avoids a cross-service cascade: deleting a Room
+// or User row must never silently cascade-delete chat history.
+model Message {
+  id     String @id @default(uuid())
+  roomId String
+  userId String
+
+  // Monotonic tiebreaker for cursor pagination — createdAt alone can collide
+  // at millisecond precision under concurrent sends, and UUID ids don't sort
+  // in insertion order. sequence always does, with no floating-point/clock
+  // hacks involved.
+  sequence BigInt @default(autoincrement())
+
+  content String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  @@index([roomId, createdAt])
+  @@index([roomId, sequence])
+}

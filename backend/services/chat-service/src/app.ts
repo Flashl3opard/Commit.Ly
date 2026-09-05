@@ -2,8 +2,8 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import roomRoutes from "./modules/room/room.routes";
-import internalRoutes from "./modules/internal/internal.routes";
+import { roomMessagesRouter } from "./modules/message/message.routes";
+import { messageByIdRouter } from "./modules/message/messageById.routes";
 
 const app = express();
 
@@ -16,16 +16,15 @@ app.use(
   })
 );
 
-app.use("/rooms", roomRoutes);
-app.use("/internal", internalRoutes);
+app.use("/rooms/:roomId/messages", roomMessagesRouter);
+app.use("/messages/:messageId", messageByIdRouter);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-// Ensures any unhandled error (including ones thrown by Express itself, e.g.
-// malformed JSON bodies) reaches the client as clean JSON, never Express's
-// default HTML stack trace page.
+// Ensures any unhandled error reaches the client as clean JSON, never
+// Express's default HTML stack trace page.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Something went wrong. Please try again." });
 });
