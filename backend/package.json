@@ -7,7 +7,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:auth": "npm run dev -w services/auth-service"
+    "dev:auth": "npm run dev -w services/auth-service",
+    "dev:user": "npm run dev -w services/user-service",
+    "dev:github": "npm run dev -w services/github-service",
+    "dev:room": "npm run dev -w services/room-service",
+    "dev:chat": "npm run dev -w services/chat-service",
+    "dev": "concurrently -n auth,user,github,room,chat -c blue,green,yellow,magenta,cyan \"npm:dev:auth\" \"npm:dev:user\" \"npm:dev:github\" \"npm:dev:room\" \"npm:dev:chat\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "allowScripts": {
     "prisma@6.19.3": true,
