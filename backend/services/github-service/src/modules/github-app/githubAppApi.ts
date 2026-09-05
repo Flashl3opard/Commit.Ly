@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { githubAppConfig } from "./githubApp.config";
+import { getConfiguredGithubApp } from "./githubApp.config";
 
 export class GithubAppApiError extends Error {}
 
@@ -8,14 +8,18 @@ const APP_JWT_TTL_SECONDS = 9 * 60; // GitHub allows a max of 10 minutes; stay u
 const APP_JWT_CLOCK_SKEW_SECONDS = 60;
 
 function generateAppJwt(): string {
+  // Throws if GitHub App is not fully configured — callers must check
+  // isGithubAppConfigured() before reaching here; this is a last-resort
+  // guard against partial credentials ever being used.
+  const config = getConfiguredGithubApp();
   const now = Math.floor(Date.now() / 1000);
   return jwt.sign(
     {
       iat: now - APP_JWT_CLOCK_SKEW_SECONDS,
       exp: now + APP_JWT_TTL_SECONDS,
-      iss: githubAppConfig.appId,
+      iss: config.appId,
     },
-    githubAppConfig.privateKey,
+    config.privateKey,
     { algorithm: "RS256" }
   );
 }

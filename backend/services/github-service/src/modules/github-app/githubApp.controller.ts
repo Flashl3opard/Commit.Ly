@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { githubAppConfig } from "./githubApp.config";
+import { githubAppConfig, isGithubAppConfigured } from "./githubApp.config";
 import { createInstallState, consumeInstallState } from "./githubApp.installation.store";
 import { GithubAppApiError } from "./githubAppApi";
 import {
@@ -10,6 +10,12 @@ import {
   GithubAppServiceError,
 } from "./githubApp.service";
 import { UserServiceError } from "../github/userServiceClient";
+
+const NOT_CONFIGURED_MESSAGE = "GitHub App is not configured.";
+
+function sendNotConfigured(res: Response) {
+  return res.status(503).json({ error: NOT_CONFIGURED_MESSAGE });
+}
 
 function redirectOutcome(res: Response, outcome: "success" | "error", reason?: string) {
   const url = new URL("/profile", githubAppConfig.frontendUrl);
@@ -22,6 +28,10 @@ export async function install(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+  if (!isGithubAppConfigured()) {
+    return sendNotConfigured(res);
+  }
+
   try {
     await assertGithubIdentityVerified(userId);
   } catch (err) {
@@ -33,13 +43,17 @@ export async function install(req: Request, res: Response) {
 
   const state = createInstallState(userId);
 
-  const installUrl = new URL(githubAppConfig.installUrl);
+  const installUrl = new URL(githubAppConfig.installUrl as string);
   installUrl.searchParams.set("state", state);
 
   return res.redirect(installUrl.toString());
 }
 
 export async function callback(req: Request, res: Response) {
+  if (!isGithubAppConfigured()) {
+    return sendNotConfigured(res);
+  }
+
   const { installation_id: rawInstallationId, state, setup_action: setupAction } = req.query;
 
   if (setupAction === "uninstall") {
@@ -80,6 +94,10 @@ export async function status(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+  if (!isGithubAppConfigured()) {
+    return res.status(200).json({ installed: false, installation: null });
+  }
+
   const result = await getInstallationStatusForUser(userId);
   return res.status(200).json(result);
 }
@@ -87,6 +105,10 @@ export async function status(req: Request, res: Response) {
 export async function repositories(req: Request, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  if (!isGithubAppConfigured()) {
+    return sendNotConfigured(res);
+  }
 
   const repos = await getRepositoriesForUser(userId);
   return res.status(200).json({ repositories: repos });
