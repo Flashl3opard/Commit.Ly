@@ -50,7 +50,7 @@ function validate(values: {
 
 export default function SignupPage() {
   const { status } = useRedirectByAuth({ whenIncompleteProfile: "/onboarding", whenCompleteProfile: "/" });
-  const { setUser } = useAuth();
+  const { markAuthenticated } = useAuth();
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -78,7 +78,11 @@ export default function SignupPage() {
       let profileCompleted = false;
       try {
         const { user } = await getCurrentUser();
-        setUser(user);
+        // Sets user and status together so the destination page's own
+        // useRedirectByAuth sees a consistent authenticated state on its
+        // very first render, instead of a stale "unauthenticated" status
+        // racing against a freshly-set user.
+        markAuthenticated(user);
         profileCompleted = user.profileCompleted;
       } catch {
         // Registration succeeded even if this follow-up lookup fails;
