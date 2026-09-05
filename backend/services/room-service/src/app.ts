@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import roomRoutes from "./modules/room/room.routes";
+import internalRoutes from "./modules/internal/internal.routes";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(
 );
 
 app.use("/rooms", roomRoutes);
+app.use("/internal", internalRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
