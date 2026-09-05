@@ -15,8 +15,6 @@
   "type": "commonjs",
   "dependencies": {
     "@commitly/db": "*",
-    "@octokit/app": "^15.1.6",
-    "@octokit/rest": "^21.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
