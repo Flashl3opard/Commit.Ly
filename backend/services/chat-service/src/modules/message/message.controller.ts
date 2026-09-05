@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
-import { createMessageSchema, listMessagesQuerySchema } from "./message.validation";
-import { createMessage, getMessageHistory, MessageServiceError } from "./message.service";
+import { createMessageSchema, editMessageSchema, listMessagesQuerySchema } from "./message.validation";
+import {
+  createMessage,
+  getMessageHistory,
+  editMessage,
+  deleteMessage,
+  MessageServiceError,
+} from "./message.service";
 
 function handleServiceError(err: unknown, res: Response) {
   if (err instanceof MessageServiceError) {
@@ -38,6 +44,35 @@ export async function history(req: Request<{ roomId: string }>, res: Response) {
   try {
     const page = await getMessageHistory(req.params.roomId, userId, parsed.data);
     return res.status(200).json(page);
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+}
+
+export async function edit(req: Request<{ messageId: string }>, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+  const parsed = editMessageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid message content", details: parsed.error.flatten() });
+  }
+
+  try {
+    const message = await editMessage(req.params.messageId, userId, parsed.data);
+    return res.status(200).json({ message });
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+}
+
+export async function remove(req: Request<{ messageId: string }>, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+  try {
+    const message = await deleteMessage(req.params.messageId, userId);
+    return res.status(200).json({ message });
   } catch (err) {
     return handleServiceError(err, res);
   }

@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { roomMessagesRouter } from "./modules/message/message.routes";
+import { messageByIdRouter } from "./modules/message/messageById.routes";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(
 );
 
 app.use("/rooms/:roomId/messages", roomMessagesRouter);
+app.use("/messages/:messageId", messageByIdRouter);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });

@@ -1,7 +1,7 @@
 import { prisma } from "../../config/prisma";
 import { getRoomMembership, RoomServiceClientError } from "../room/roomServiceClient";
 import { encodeCursor, decodeCursor, InvalidCursorError } from "./cursor";
-import type { CreateMessageInput, ListMessagesQuery } from "./message.validation";
+import type { CreateMessageInput, EditMessageInput, ListMessagesQuery } from "./message.validation";
 
 export class MessageServiceError extends Error {
   status: number;
@@ -156,4 +156,56 @@ export async function getMessageHistory(
     messages: page.map(toSafeMessage).reverse(),
     nextCursor: hasMore && oldestInPage ? encodeCursor(oldestInPage.sequence) : null,
   };
+}
+
+/**
+ * Loads a message and verifies both room membership and message authorship.
+ * Being a room member is never sufficient on its own to edit/delete another
+ * member's message — only the original author may. A message that has
+ * already been soft-deleted is treated as not-editable/not-deletable
+ * (404), since its content is already gone and re-exposing its existence
+ * for further mutation serves no purpose.
+ */
+async function loadOwnedMessage(messageId: string, userId: string): Promise<MessageRecord> {
+  const message: MessageRecord | null = await prisma.message.findUnique({ where: { id: messageId } });
+
+  if (!message || message.deletedAt) {
+    throw new MessageServiceError("Message not found.", 404);
+  }
+
+  await assertRoomMembership(message.roomId, userId);
+
+  if (message.userId !== userId) {
+    throw new MessageServiceError("You can only modify your own messages.", 403);
+  }
+
+  return message;
+}
+
+export async function editMessage(
+  messageId: string,
+  userId: string,
+  input: EditMessageInput,
+): Promise<SafeMessage> {
+  await loadOwnedMessage(messageId, userId);
+
+  const now = new Date();
+  const updated = await prisma.message.update({
+    where: { id: messageId },
+    data: { content: input.content, editedAt: now },
+  });
+
+  return toSafeMessage(updated);
+}
+
+export async function deleteMessage(messageId: string, userId: string): Promise<SafeMessage> {
+  await loadOwnedMessage(messageId, userId);
+
+  const now = new Date();
+  const deleted = await prisma.message.update({
+    where: { id: messageId },
+    data: { deletedAt: now },
+  });
+
+  return toSafeMessage(deleted);
 }
