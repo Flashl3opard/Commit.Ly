@@ -159,3 +159,21 @@ export async function unlinkGithubIdentity(userId: string): Promise<PrivateUser>
 export async function getUserByGithubId(githubId: string): Promise<{ id: string } | null> {
   return prisma.user.findUnique({ where: { githubId }, select: { id: true } });
 }
+
+export type GithubIdentityState = {
+  githubId: string | null;
+  githubUsername: string | null;
+  githubVerified: boolean;
+};
+
+/**
+ * Exposes the raw githubId (never returned by the public/private user DTOs)
+ * so the GitHub Service can verify a GitHub App installation's account
+ * against the user's already-verified OAuth identity. Internal only.
+ */
+export async function getGithubIdentityState(userId: string): Promise<GithubIdentityState | null> {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { githubId: true, githubUsername: true, githubVerified: true },
+  });
+}

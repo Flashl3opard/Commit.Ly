@@ -14,7 +14,7 @@ type LinkedUser = {
   githubVerified: boolean;
 };
 
-async function internalRequest<T>(path: string, method: "PATCH" | "DELETE", body?: unknown): Promise<T> {
+async function internalRequest<T>(path: string, method: "GET" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
   const response = await fetch(`${internalConfig.userServiceUrl}${path}`, {
     method,
     headers: {
@@ -75,4 +75,23 @@ export async function getGithubLinkState(cookieHeader: string): Promise<LinkedUs
   }
 
   return (data as { user: LinkedUser }).user;
+}
+
+export type GithubIdentityState = {
+  githubId: string | null;
+  githubUsername: string | null;
+  githubVerified: boolean;
+};
+
+/**
+ * Fetches the raw githubId via the internal service boundary. Used to
+ * verify a GitHub App installation's account against the user's already
+ * verified OAuth identity — never exposed through the public /users/me DTO.
+ */
+export async function getGithubIdentity(userId: string): Promise<GithubIdentityState> {
+  const { identity } = await internalRequest<{ identity: GithubIdentityState }>(
+    `/internal/users/${encodeURIComponent(userId)}/github`,
+    "GET",
+  );
+  return identity;
 }

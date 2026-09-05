@@ -9,6 +9,16 @@ process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 process.env.GITHUB_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_CLIENT_SECRET ??= "test-client-secret";
 process.env.GITHUB_CALLBACK_URL ??= "http://127.0.0.1:4002/github/callback";
+// app.ts also mounts the GitHub App module, which validates its own env vars
+// at import time — stub them so this file can still test OAuth routes alone.
+process.env.FRONTEND_URL ??= "http://localhost:3000";
+process.env.GITHUB_APP_ID ??= "test-app-id";
+process.env.GITHUB_APP_SLUG ??= "test-app-slug";
+process.env.GITHUB_APP_CLIENT_ID ??= "test-app-client-id";
+process.env.GITHUB_APP_CLIENT_SECRET ??= "test-app-client-secret";
+process.env.GITHUB_APP_PRIVATE_KEY ??= "test-app-private-key";
+process.env.GITHUB_APP_WEBHOOK_SECRET ??= "test-app-webhook-secret";
+process.env.GITHUB_APP_CALLBACK_URL ??= "http://127.0.0.1:4002/github/app/callback";
 
 const mockGetGithubLinkState = vi.fn();
 

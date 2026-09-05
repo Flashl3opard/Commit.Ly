@@ -25,7 +25,8 @@ model User {
 
   profileCompleted Boolean @default(false)
 
-  skills UserSkill[]
+  skills              UserSkill[]
+  githubInstallations GithubInstallation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -38,4 +39,45 @@ model UserSkill {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, skill])
+}
+
+model GithubInstallation {
+  id             String @id @default(uuid())
+  userId         String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installationId BigInt @unique
+
+  accountLogin String
+  accountId    BigInt
+  accountType  String // "User" | "Organization"
+
+  suspended Boolean @default(false)
+  active    Boolean @default(true) // flipped false on uninstall/revocation
+
+  repositories GithubRepository[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model GithubRepository {
+  id             String             @id @default(uuid())
+  installationId String
+  installation   GithubInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  githubRepositoryId BigInt
+  name               String
+  fullName           String
+  ownerLogin         String
+  ownerId            BigInt
+  private            Boolean
+  defaultBranch      String?
+  htmlUrl            String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([installationId, githubRepositoryId])
 }

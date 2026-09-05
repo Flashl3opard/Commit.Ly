@@ -4,6 +4,7 @@ import type { PrivateUser } from "@/lib/api/types";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { GithubVerifiedBadge } from "@/components/ui/GithubVerifiedBadge";
 import { GithubConnectionSection } from "./GithubConnectionSection";
+import { GithubAppSection } from "./GithubAppSection";
 
 export function ProfileCard({ user }: { user: PrivateUser }) {
   const displayName = user.displayName ?? user.username;
@@ -52,8 +53,9 @@ export function ProfileCard({ user }: { user: PrivateUser }) {
         </p>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
         <GithubConnectionSection />
+        <GithubAppSection />
       </div>
 
       <div className="mt-8">
