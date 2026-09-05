@@ -23,3 +23,35 @@ export function connectGithubUrl(from?: "onboarding"): string {
   const query = from ? `?from=${encodeURIComponent(from)}` : "";
   return `${baseUrl}/github/connect${query}`;
 }
+
+export type GithubAppStatus = {
+  installed: boolean;
+  installation: { accountLogin: string; accountType: string } | null;
+};
+
+export function getGithubAppStatus(): Promise<GithubAppStatus> {
+  return githubRequest<GithubAppStatus>("/github/app/status");
+}
+
+export type GithubAppRepository = {
+  id: string;
+  name: string;
+  fullName: string;
+  private: boolean;
+  defaultBranch: string | null;
+  htmlUrl: string;
+};
+
+export function getGithubAppRepositories(): Promise<{ repositories: GithubAppRepository[] }> {
+  return githubRequest<{ repositories: GithubAppRepository[] }>("/github/app/repositories");
+}
+
+/**
+ * Not a fetch call — navigates the browser to GitHub Service's App
+ * installation entry point so the existing session cookie flows along
+ * with the redirect, same pattern as connectGithubUrl().
+ */
+export function installGithubAppUrl(): string {
+  const baseUrl = process.env.NEXT_PUBLIC_GITHUB_API_URL;
+  return `${baseUrl}/github/app/install`;
+}
