@@ -13,6 +13,7 @@ type AuthContextValue = {
   status: AuthStatus;
   refreshSession: () => Promise<PrivateUser | null>;
   setUser: (user: PrivateUser | null) => void;
+  markAuthenticated: (user: PrivateUser) => void;
   logout: () => Promise<void>;
 };
 
@@ -33,6 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
       return null;
     }
+  }, []);
+
+  // The only correct way to record a fresh login/signup: user and status
+  // must update together in the same render. Setting user alone (leaving
+  // status at whatever it was, typically "unauthenticated" pre-login) lets
+  // a guard evaluated on the very next render — e.g. the destination page's
+  // useRedirectByAuth right after router.replace() — see an authenticated
+  // user but a stale unauthenticated status, and bounce them straight back.
+  const markAuthenticated = useCallback((authenticatedUser: PrivateUser) => {
+    setUser(authenticatedUser);
+    setStatus("authenticated");
   }, []);
 
   const logout = useCallback(async () => {
@@ -84,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, status, refreshSession, setUser, logout }}>
+    <AuthContext.Provider value={{ user, status, refreshSession, setUser, markAuthenticated, logout }}>
       {children}
     </AuthContext.Provider>
   );
