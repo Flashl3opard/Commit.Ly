@@ -7,6 +7,8 @@ import { ApiError } from "@/lib/api/types";
 import { RoomHeader } from "@/components/rooms/RoomHeader";
 import { RoomSettingsDialog } from "@/components/rooms/RoomSettingsDialog";
 import { RoomChat } from "@/components/chat/RoomChat";
+import { useCommandPalette } from "@/components/search/useCommandPalette";
+import { CommandPalette } from "@/components/search/CommandPalette";
 
 type LoadState =
   | { status: "loading"; roomId: string }
@@ -19,6 +21,7 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   const { roomId } = use(params);
   const [load, setLoad] = useState<LoadState>({ status: "loading", roomId });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const commandPalette = useCommandPalette();
 
   useEffect(() => {
     let cancelled = false;
@@ -92,12 +95,17 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <RoomHeader room={room} onOpenSettings={() => setSettingsOpen(true)} />
+      <RoomHeader room={room} onOpenSettings={() => setSettingsOpen(true)} onOpenSearch={commandPalette.open} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <RoomChat room={room} />
       </div>
 
       <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />
+      <CommandPalette
+        isOpen={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        currentRoom={{ id: room.id, repositoryId: room.repository.id }}
+      />
     </div>
   );
 }
