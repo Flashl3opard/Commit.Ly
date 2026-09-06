@@ -10,6 +10,7 @@ import { RoomChat } from "@/components/chat/RoomChat";
 import { useCommandPalette } from "@/components/search/useCommandPalette";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { CommitlyMark } from "@/components/ui/CommitlyMark";
+import { useLastVisitedRoom } from "@/lib/rooms/useLastVisitedRoom";
 
 type LoadState =
   | { status: "loading"; roomId: string }
@@ -55,6 +56,8 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   // resolving) is treated the same as "loading" rather than showing stale
   // content from the previous room.
   const current = load.roomId === roomId ? load : { status: "loading" as const, roomId };
+
+  useLastVisitedRoom(current.status === "ready" ? current.room.id : null);
 
   if (current.status === "loading") {
     return (
@@ -118,7 +121,7 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
       <CommandPalette
         isOpen={commandPalette.isOpen}
         onClose={commandPalette.close}
-        currentRoom={{ id: room.id, repositoryId: room.repository.id }}
+        currentRoom={{ id: room.id, repositoryId: room.repository.id, members: room.members }}
       />
     </div>
   );

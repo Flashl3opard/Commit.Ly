@@ -18,7 +18,7 @@ export function PullRequestActivityCard({ message, railPosition }: { message: Me
           <GitPullRequest className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
         )
       }
-      accent={isMerged ? "success" : isClosed ? "muted" : "accent"}
+      accent={isMerged ? "success" : isClosed ? "danger" : "accent"}
       label="Pull Request"
       headline={message.content ?? ""}
       secondary={message.metadata?.title}

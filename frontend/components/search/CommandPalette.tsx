@@ -2,11 +2,12 @@
 
 import { useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Hash, MessageSquare, GitPullRequest, Loader2 } from "lucide-react";
+import { Search, Hash, MessageSquare, GitPullRequest, User, Loader2 } from "lucide-react";
 import { useRooms } from "@/lib/rooms/RoomsContext";
 import { searchMessages } from "@/lib/api/chat";
 import { searchGithubActivity, type GithubSearchResult } from "@/lib/api/github";
 import type { Message } from "@/lib/api/chat";
+import type { RoomMember } from "@/lib/api/rooms";
 
 const DEBOUNCE_MS = 400;
 
@@ -14,7 +15,7 @@ type CommandPaletteProps = {
   isOpen: boolean;
   onClose: () => void;
   /** Search context for the room currently being viewed, if any. */
-  currentRoom: { id: string; repositoryId: string } | null;
+  currentRoom: { id: string; repositoryId: string; members: RoomMember[] } | null;
 };
 
 type State = {
@@ -96,6 +97,14 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
       room.name.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
       room.repository.fullName.toLowerCase().includes(trimmedQuery.toLowerCase()),
   );
+  const filteredMembers = trimmedQuery
+    ? (currentRoom?.members ?? []).filter((member) => {
+        const needle = trimmedQuery.toLowerCase();
+        return (
+          member.username?.toLowerCase().includes(needle) || member.displayName?.toLowerCase().includes(needle)
+        );
+      })
+    : [];
 
   return (
     <div
@@ -159,6 +168,26 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
                   <span className="shrink-0 font-mono text-xs text-muted-2">#{result.number}</span>
                   <span className="min-w-0 flex-1 truncate text-foreground">{result.title}</span>
                 </a>
+              ))}
+            </div>
+          )}
+
+          {filteredMembers.length > 0 && (
+            <div className="px-2 py-1">
+              <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">People</p>
+              {filteredMembers.map((member) => (
+                <button
+                  key={member.userId}
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (currentRoom) router.push(`/rooms/${currentRoom.id}`);
+                  }}
+                  className="focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-foreground hover:bg-background-3"
+                >
+                  <User className="h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{member.displayName ?? member.username}</span>
+                </button>
               ))}
             </div>
           )}

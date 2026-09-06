@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Search } from "lucide-react";
@@ -9,8 +10,19 @@ import { useCommandPalette } from "@/components/search/useCommandPalette";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import type { PrivateUser } from "@/lib/api/types";
 
+const noopSubscribe = () => () => {};
+
+function getIsMacSnapshot() {
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = uaData?.platform ?? navigator.platform;
+  return /mac/i.test(platform);
+}
+
+function useIsMac() {
+  return useSyncExternalStore(noopSubscribe, getIsMacSnapshot, () => false);
+}
+
 const APP_LINKS = [
-  { label: "Home", href: "/" },
   { label: "Rooms", href: "/rooms" },
   { label: "Messages", href: "#" },
   { label: "GitHub", href: "#" },
@@ -21,6 +33,7 @@ const APP_LINKS = [
 export function AppNavbar({ user }: { user: PrivateUser }) {
   const pathname = usePathname();
   const commandPalette = useCommandPalette();
+  const isMac = useIsMac();
 
   return (
     <>
@@ -33,8 +46,7 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
 
           <nav className="hidden items-center gap-1 lg:flex">
             {APP_LINKS.map((link) => {
-              const isActive =
-                link.href === "/" ? pathname === "/" : link.href !== "#" && pathname.startsWith(link.href);
+              const isActive = link.href !== "#" && pathname.startsWith(link.href);
               return (
                 <Link
                   key={link.label}
@@ -56,20 +68,22 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
           <button
             type="button"
             onClick={commandPalette.open}
-            title="Search Commit.ly (Ctrl+K)"
+            title={isMac ? "Search Commit.ly (⌘K)" : "Search Commit.ly (Ctrl+K)"}
             aria-label="Search Commit.ly"
-            className="focus-ring hidden items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-2 transition-colors hover:bg-background-3 hover:text-foreground sm:flex"
+            className="focus-ring hidden h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-muted-2 transition-colors hover:bg-background-3 hover:text-foreground sm:flex"
           >
-            <Search className="h-3.5 w-3.5" aria-hidden="true" />
-            Search
-            <kbd className="rounded border border-border-strong bg-background-3 px-1 font-mono text-[10px]">⌘K</kbd>
+            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>Search</span>
+            <kbd className="rounded border border-border-strong bg-background-3 px-1 py-0.5 font-mono text-[10px] leading-none">
+              {isMac ? "⌘K" : "Ctrl K"}
+            </kbd>
           </button>
           <ThemeToggle />
           <button
             type="button"
             title="Notifications"
             aria-label="Notifications"
-            className="focus-ring relative rounded-lg p-2 text-muted transition-colors hover:bg-white/5 hover:text-foreground"
+            className="focus-ring relative flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/5 hover:text-foreground"
           >
             <Bell className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>

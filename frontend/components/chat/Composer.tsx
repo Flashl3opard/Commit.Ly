@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { Send, Loader2, Paperclip, Smile, AtSign, Code2 } from "lucide-react";
 
 const MAX_CONTENT_LENGTH = 4000;
@@ -28,6 +28,7 @@ export function Composer({ onSend, onTypingStart, onTypingStop, disabled }: Comp
       await onSend(trimmed);
       setContent("");
       onTypingStop();
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
       textareaRef.current?.focus();
     } catch {
       setError("Couldn't send your message. Please try again.");
@@ -43,13 +44,18 @@ export function Composer({ onSend, onTypingStart, onTypingStop, disabled }: Comp
     }
   }
 
-  function handleChange(value: string) {
+  function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    const value = event.target.value;
     setContent(value);
     if (value.trim()) {
       onTypingStart();
     } else {
       onTypingStop();
     }
+
+    const el = event.target;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   return (
@@ -59,7 +65,7 @@ export function Composer({ onSend, onTypingStart, onTypingStop, disabled }: Comp
         <textarea
           ref={textareaRef}
           value={content}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={onTypingStop}
           placeholder="Message this room…"

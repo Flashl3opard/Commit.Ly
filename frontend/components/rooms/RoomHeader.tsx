@@ -15,7 +15,7 @@ export function RoomHeader({ room, onOpenSettings, onToggleMembers, onOpenSearch
   const { openMobileSidebar } = useRoomSidebarDrawer();
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-background px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-10 border-b border-border bg-room-chat-bg px-4 py-3 sm:px-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-1">
           <button
@@ -29,8 +29,8 @@ export function RoomHeader({ room, onOpenSettings, onToggleMembers, onOpenSearch
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Hash className="h-4 w-4 shrink-0 text-muted-2" aria-hidden="true" />
-              <h1 className="truncate text-base font-semibold text-foreground">{room.name}</h1>
+              <Hash className="h-5 w-5 shrink-0 text-muted-2" aria-hidden="true" />
+              <h1 className="truncate text-lg font-semibold text-foreground">{room.name}</h1>
             </div>
             <div className="mt-0.5 flex items-center gap-2.5">
               <a

@@ -88,7 +88,7 @@ export function MessageItem({
 
   if (isDeleted) {
     return (
-      <div className={`group flex gap-3 px-4 py-1 ${isGroupedWithPrevious ? "" : "mt-3"}`}>
+      <div className={`group flex gap-3 px-4 py-1 ${isGroupedWithPrevious ? "" : "mt-2"}`}>
         <div className="w-8 shrink-0" />
         <p className="text-sm italic text-muted-2">This message was deleted.</p>
       </div>
@@ -96,7 +96,7 @@ export function MessageItem({
   }
 
   return (
-    <div className={`group relative flex gap-3 px-4 py-1 ${isGroupedWithPrevious ? "" : "mt-3"}`}>
+    <div className={`group relative flex gap-3 px-4 py-1 ${isGroupedWithPrevious ? "" : "mt-2"}`}>
       <div className="w-8 shrink-0">
         {!isGroupedWithPrevious && <UserAvatar avatarUrl={sender?.avatarUrl ?? null} username={senderName} size="sm" />}
       </div>

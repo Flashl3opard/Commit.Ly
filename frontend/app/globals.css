@@ -40,9 +40,13 @@
   --hero-bg-gradient:
     radial-gradient(ellipse 900px 550px at 65% 25%, rgba(34, 211, 238, 0.08), transparent 65%),
     linear-gradient(180deg, #06080b, #0c1117);
-  --chat-bg-gradient:
-    radial-gradient(ellipse 1100px 700px at 20% 0%, rgba(34, 211, 238, 0.05), transparent 60%),
-    radial-gradient(ellipse 900px 700px at 100% 100%, rgba(59, 130, 246, 0.05), transparent 60%);
+  --room-sidebar-bg: #0a1628;
+  --room-chat-bg: #0f1f36;
+  --room-panel-bg: #0c1a2e;
+  --room-sidebar-fg: #f4f7fb;
+  --room-sidebar-muted: #8a97a8;
+  --room-sidebar-muted-2: #5c6779;
+  --room-sidebar-active: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme="light"] {
@@ -77,9 +81,13 @@
     radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.16), transparent 60%),
     radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.13), transparent 60%),
     linear-gradient(180deg, #dcecf7, #cde3f3);
-  --chat-bg-gradient:
-    radial-gradient(ellipse 1100px 700px at 20% 0%, rgba(8, 145, 178, 0.1), transparent 60%),
-    radial-gradient(ellipse 900px 700px at 100% 100%, rgba(37, 99, 235, 0.09), transparent 60%);
+  --room-sidebar-bg: #163457;
+  --room-chat-bg: #dcecf7;
+  --room-panel-bg: #cfe6f6;
+  --room-sidebar-fg: #f4f7fb;
+  --room-sidebar-muted: #8a97a8;
+  --room-sidebar-muted-2: #5c6779;
+  --room-sidebar-active: rgba(255, 255, 255, 0.08);
 }
 
 @theme inline {
@@ -106,6 +114,13 @@
   --color-warning-bg: var(--warning-bg);
   --color-warning-border: var(--warning-border);
   --color-accent-soft: var(--accent-soft);
+  --color-room-sidebar-bg: var(--room-sidebar-bg);
+  --color-room-chat-bg: var(--room-chat-bg);
+  --color-room-panel-bg: var(--room-panel-bg);
+  --color-room-sidebar-fg: var(--room-sidebar-fg);
+  --color-room-sidebar-muted: var(--room-sidebar-muted);
+  --color-room-sidebar-muted-2: var(--room-sidebar-muted-2);
+  --color-room-sidebar-active: var(--room-sidebar-active);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -156,12 +171,8 @@ body {
   background-size: 46px 46px;
 }
 
-/* Subtle blue wash behind the chat message stream, distinct from the flat
-   sidebar/panel backgrounds — makes the conversation area itself feel like
-   its own vibrant space instead of blending into the app shell. */
 .bg-chat {
-  background-color: var(--background);
-  background-image: var(--chat-bg-gradient);
+  background-color: var(--room-chat-bg);
 }
 
 .focus-ring {

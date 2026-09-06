@@ -16,7 +16,7 @@ export function IssueActivityCard({ message, railPosition }: { message: Message;
           <CircleDot className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
         )
       }
-      accent={isClosed ? "success" : "accent"}
+      accent={isClosed ? "danger" : "accent"}
       label="Issue"
       headline={message.content ?? ""}
       secondary={message.metadata?.title}
@@ -24,6 +24,7 @@ export function IssueActivityCard({ message, railPosition }: { message: Message;
       linkHref={url}
       linkLabel="View issue"
       railPosition={railPosition}
+      emphasisMarker={isClosed}
     />
   );
 }
