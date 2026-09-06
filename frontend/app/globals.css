@@ -40,22 +40,25 @@
   --hero-bg-gradient:
     radial-gradient(ellipse 900px 550px at 65% 25%, rgba(34, 211, 238, 0.08), transparent 65%),
     linear-gradient(180deg, #06080b, #0c1117);
+  --chat-bg-gradient:
+    radial-gradient(ellipse 1100px 700px at 20% 0%, rgba(34, 211, 238, 0.05), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 100% 100%, rgba(59, 130, 246, 0.05), transparent 60%);
 }
 
 :root[data-theme="light"] {
   --hero-bg-gradient:
-    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(8, 145, 178, 0.1), transparent 65%),
-    linear-gradient(180deg, #eef5f9, #e3edf5);
-  --background: #eef5f9;
-  --background-2: #e6f1f7;
-  --background-3: #dbeaf2;
-  --foreground: #0d1b24;
-  --muted: #4f6577;
-  --muted-2: #7c93a3;
-  --border: rgba(8, 82, 110, 0.14);
-  --border-strong: rgba(8, 82, 110, 0.24);
-  --surface: rgba(230, 241, 247, 0.78);
-  --surface-solid: #eaf3f8;
+    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(8, 145, 178, 0.16), transparent 65%),
+    linear-gradient(180deg, #dcecf7, #cde3f3);
+  --background: #dcecf7;
+  --background-2: #cfe6f6;
+  --background-3: #bfdbf2;
+  --foreground: #0a1a2b;
+  --muted: #3d5a75;
+  --muted-2: #6685a1;
+  --border: rgba(6, 74, 122, 0.18);
+  --border-strong: rgba(6, 74, 122, 0.3);
+  --surface: rgba(207, 230, 246, 0.82);
+  --surface-solid: #e2f0fa;
   --accent: #0891b2;
   --accent-2: #2563eb;
   --accent-foreground: #ffffff;
@@ -68,12 +71,15 @@
   --warning: #b45309;
   --warning-bg: rgba(180, 83, 9, 0.08);
   --warning-border: rgba(180, 83, 9, 0.25);
-  --accent-soft: rgba(8, 145, 178, 0.08);
-  --grid-line: rgba(8, 82, 110, 0.07);
+  --accent-soft: rgba(8, 145, 178, 0.14);
+  --grid-line: rgba(6, 74, 122, 0.09);
   --auth-bg-gradient:
-    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.1), transparent 60%),
-    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.08), transparent 60%),
-    linear-gradient(180deg, #eef5f9, #e3edf5);
+    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.16), transparent 60%),
+    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.13), transparent 60%),
+    linear-gradient(180deg, #dcecf7, #cde3f3);
+  --chat-bg-gradient:
+    radial-gradient(ellipse 1100px 700px at 20% 0%, rgba(8, 145, 178, 0.1), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 100% 100%, rgba(37, 99, 235, 0.09), transparent 60%);
 }
 
 @theme inline {
@@ -148,6 +154,14 @@ body {
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 46px 46px;
+}
+
+/* Subtle blue wash behind the chat message stream, distinct from the flat
+   sidebar/panel backgrounds — makes the conversation area itself feel like
+   its own vibrant space instead of blending into the app shell. */
+.bg-chat {
+  background-color: var(--background);
+  background-image: var(--chat-bg-gradient);
 }
 
 .focus-ring {

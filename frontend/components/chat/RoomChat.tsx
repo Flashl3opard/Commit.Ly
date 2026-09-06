@@ -66,7 +66,7 @@ export function RoomChat({
 
   return (
     <ActiveRoomMessagesProvider value={{ roomId: room.id, messageIds: chat.messages.map((m) => m.id) }}>
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="bg-chat relative flex min-h-0 flex-1 flex-col">
         {chat.connectionState !== "connected" && (
           <div className="absolute top-2 left-1/2 z-10 -translate-x-1/2">
             <ConnectionStatusBadge state={chat.connectionState} />
@@ -139,7 +139,7 @@ export function RoomChat({
         />
       </div>
 
-      <div className="hidden lg:flex">
+      <div className="hidden min-h-0 lg:flex">
         {!openThreadMessageId && <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />}
         {openThreadMessageId &&
           (() => {

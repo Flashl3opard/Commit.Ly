@@ -20,7 +20,7 @@ export function RoomMembersPanel({ members, onlineUserIds }: RoomMembersPanelPro
   const onlineCount = onlineUserIds ? members.filter((m) => onlineUserIds.has(m.userId)).length : null;
 
   return (
-    <div className="w-full shrink-0 border-l border-border p-4 md:w-64">
+    <div className="min-h-0 w-full shrink-0 overflow-y-auto border-l border-border p-4 md:w-64">
       <p className="text-xs font-medium tracking-wide text-muted-2 uppercase">
         Members — {members.length}
         {onlineCount !== null && <span className="text-muted"> · {onlineCount} online</span>}
