@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma";
 import { getRoomMembership, RoomServiceClientError } from "../room/roomServiceClient";
 import { encodeCursor, decodeCursor, InvalidCursorError } from "./cursor";
+import { resolveMentions } from "./mentions";
 import type { CreateMessageInput, EditMessageInput, ListMessagesQuery } from "./message.validation";
 import type { CreateSystemMessageInput } from "./systemMessage.validation";
 
@@ -31,6 +32,9 @@ export type SafeMessage = {
   systemEventType: string | null;
   metadata: Record<string, unknown> | null;
   content: string | null;
+  parentMessageId: string | null;
+  replyCount: number;
+  mentionedUserIds: string[];
   createdAt: string;
   updatedAt: string;
   editedAt: string | null;
@@ -45,6 +49,9 @@ type MessageRecord = {
   systemEventType: string | null;
   metadata: unknown;
   content: string;
+  parentMessageId: string | null;
+  replyCount: number;
+  mentionedUserIds: string[];
   sequence: bigint;
   createdAt: Date;
   updatedAt: Date;
@@ -60,6 +67,9 @@ function toSafeMessage(message: {
   systemEventType?: string | null;
   metadata?: unknown;
   content: string;
+  parentMessageId?: string | null;
+  replyCount?: number;
+  mentionedUserIds?: string[];
   createdAt: Date;
   updatedAt: Date;
   editedAt: Date | null;
@@ -73,6 +83,9 @@ function toSafeMessage(message: {
     systemEventType: message.systemEventType ?? null,
     metadata: (message.metadata as Record<string, unknown> | null | undefined) ?? null,
     content: message.deletedAt ? null : message.content,
+    parentMessageId: message.parentMessageId ?? null,
+    replyCount: message.replyCount ?? 0,
+    mentionedUserIds: message.deletedAt ? [] : (message.mentionedUserIds ?? []),
     createdAt: message.createdAt.toISOString(),
     updatedAt: message.updatedAt.toISOString(),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
@@ -109,15 +122,81 @@ export async function createMessage(
 ): Promise<SafeMessage> {
   await assertRoomMembership(roomId, userId);
 
+  const mentionedUserIds = await resolveMentions(roomId, input.content);
+
   const message = await prisma.message.create({
     data: {
       roomId,
       userId,
       content: input.content,
+      mentionedUserIds,
     },
   });
 
   return toSafeMessage(message);
+}
+
+/**
+ * A reply is an ordinary Message with parentMessageId set — same table,
+ * same send/edit/delete/broadcast/search machinery as a top-level message,
+ * per the deliberate choice to not build a parallel messaging system. The
+ * only extra step is denormalized replyCount maintenance on the parent.
+ */
+export async function createReply(
+  roomId: string,
+  parentMessageId: string,
+  userId: string,
+  input: CreateMessageInput,
+): Promise<SafeMessage> {
+  await assertRoomMembership(roomId, userId);
+
+  const parent = await prisma.message.findUnique({ where: { id: parentMessageId } });
+  if (!parent || parent.deletedAt || parent.roomId !== roomId) {
+    throw new MessageServiceError("Thread not found.", 404);
+  }
+  if (parent.parentMessageId) {
+    throw new MessageServiceError("Cannot reply to a reply — threads are one level deep.", 400);
+  }
+
+  const mentionedUserIds = await resolveMentions(roomId, input.content);
+
+  const [reply] = await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        roomId,
+        userId,
+        content: input.content,
+        parentMessageId,
+        mentionedUserIds,
+      },
+    }),
+    prisma.message.update({
+      where: { id: parentMessageId },
+      data: { replyCount: { increment: 1 } },
+    }),
+  ]);
+
+  return toSafeMessage(reply);
+}
+
+export async function getThreadReplies(
+  roomId: string,
+  parentMessageId: string,
+  userId: string,
+): Promise<SafeMessage[]> {
+  await assertRoomMembership(roomId, userId);
+
+  const parent = await prisma.message.findUnique({ where: { id: parentMessageId } });
+  if (!parent || parent.roomId !== roomId) {
+    throw new MessageServiceError("Thread not found.", 404);
+  }
+
+  const records: MessageRecord[] = await prisma.message.findMany({
+    where: { parentMessageId },
+    orderBy: { sequence: "asc" },
+  });
+
+  return records.map(toSafeMessage);
 }
 
 /**
@@ -252,21 +331,45 @@ export async function editMessage(
   userId: string,
   input: EditMessageInput,
 ): Promise<SafeMessage> {
-  await loadOwnedMessage(messageId, userId);
+  const existing = await loadOwnedMessage(messageId, userId);
+
+  // Mentions are preserved by re-resolving from the edited text rather than
+  // carrying over the original list — an edit that removes an @mention
+  // should drop it, and one that adds a new one should pick it up, exactly
+  // like a fresh send.
+  const mentionedUserIds = await resolveMentions(existing.roomId, input.content);
 
   const now = new Date();
   const updated = await prisma.message.update({
     where: { id: messageId },
-    data: { content: input.content, editedAt: now },
+    data: { content: input.content, editedAt: now, mentionedUserIds },
   });
 
   return toSafeMessage(updated);
 }
 
 export async function deleteMessage(messageId: string, userId: string): Promise<SafeMessage> {
-  await loadOwnedMessage(messageId, userId);
+  const existing = await loadOwnedMessage(messageId, userId);
 
   const now = new Date();
+
+  // Only replies touch a second row (the parent's replyCount), so only
+  // replies pay for a transaction — the much more common top-level delete
+  // stays a single update, unchanged from before threads existed.
+  if (existing.parentMessageId) {
+    const [deleted] = await prisma.$transaction([
+      prisma.message.update({
+        where: { id: messageId },
+        data: { deletedAt: now },
+      }),
+      prisma.message.update({
+        where: { id: existing.parentMessageId },
+        data: { replyCount: { decrement: 1 } },
+      }),
+    ]);
+    return toSafeMessage(deleted);
+  }
+
   const deleted = await prisma.message.update({
     where: { id: messageId },
     data: { deletedAt: now },

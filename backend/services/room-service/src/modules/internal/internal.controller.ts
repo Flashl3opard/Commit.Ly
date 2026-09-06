@@ -31,6 +31,48 @@ export async function getMembership(req: Request<{ roomId: string; userId: strin
 }
 
 /**
+ * Resolves @mention candidate usernames (parsed by Chat Service from
+ * message content) against actual current members of this room — the
+ * only source of truth for "is this a real, mentionable member," per the
+ * requirement that mentions are never trusted from arbitrary client input.
+ * Usernames that don't belong to any member of this room (typos, users who
+ * left, users mentioned outside the room) are silently dropped rather than
+ * erroring, since a message can be sent with a "mention" that just doesn't
+ * resolve to anyone.
+ */
+export type ResolvedMentionMember = {
+  userId: string;
+  username: string;
+};
+
+export async function resolveMentionedMembers(
+  req: Request<{ roomId: string }, unknown, { usernames: string[] }>,
+  res: Response,
+) {
+  const { roomId } = req.params;
+  const { usernames } = req.body;
+
+  if (usernames.length === 0) {
+    return res.status(200).json({ members: [] });
+  }
+
+  const members = await prisma.roomMember.findMany({
+    where: {
+      roomId,
+      user: { username: { in: usernames, mode: "insensitive" } },
+    },
+    select: { user: { select: { id: true, username: true } } },
+  });
+
+  const resolved: ResolvedMentionMember[] = members.map((m) => ({
+    userId: m.user.id,
+    username: m.user.username,
+  }));
+
+  return res.status(200).json({ members: resolved });
+}
+
+/**
  * Minimum information GitHub Service needs to route a webhook event to a
  * room — never the room name, password hash, or member list. Room.
  * githubRepositoryId is the current schema's unique constraint, so at most

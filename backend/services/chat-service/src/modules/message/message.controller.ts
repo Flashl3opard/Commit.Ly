@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import { createMessageSchema, editMessageSchema, listMessagesQuerySchema } from "./message.validation";
 import {
   createMessage,
+  createReply,
+  getThreadReplies,
   getMessageHistory,
   editMessage,
   deleteMessage,
@@ -29,6 +31,36 @@ export async function create(req: Request<{ roomId: string }>, res: Response) {
     const message = await createMessage(req.params.roomId, userId, parsed.data);
     broadcastMessageEvent(message.roomId, "message.created", message);
     return res.status(201).json({ message });
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+}
+
+export async function createThreadReply(req: Request<{ roomId: string; messageId: string }>, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+  const parsed = createMessageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid message content", details: parsed.error.flatten() });
+  }
+
+  try {
+    const reply = await createReply(req.params.roomId, req.params.messageId, userId, parsed.data);
+    broadcastMessageEvent(reply.roomId, "message.created", reply);
+    return res.status(201).json({ message: reply });
+  } catch (err) {
+    return handleServiceError(err, res);
+  }
+}
+
+export async function listThreadReplies(req: Request<{ roomId: string; messageId: string }>, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+  try {
+    const replies = await getThreadReplies(req.params.roomId, req.params.messageId, userId);
+    return res.status(200).json({ messages: replies });
   } catch (err) {
     return handleServiceError(err, res);
   }

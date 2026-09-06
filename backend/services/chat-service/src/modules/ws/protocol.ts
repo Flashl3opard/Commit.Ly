@@ -41,6 +41,9 @@ export type WireMessage = {
   systemEventType: string | null;
   metadata: Record<string, unknown> | null;
   content: string | null;
+  parentMessageId: string | null;
+  replyCount: number;
+  mentionedUserIds: string[];
   createdAt: string;
   updatedAt: string;
   editedAt: string | null;

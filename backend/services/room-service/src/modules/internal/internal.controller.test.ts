@@ -9,12 +9,14 @@ process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 process.env.GITHUB_SERVICE_URL ??= "http://localhost:4002";
 
 const mockMemberFindUnique = vi.fn();
+const mockMemberFindMany = vi.fn();
 const mockRoomFindFirst = vi.fn();
 
 vi.mock("../../config/prisma", () => ({
   prisma: {
     roomMember: {
       findUnique: (...args: unknown[]) => mockMemberFindUnique(...args),
+      findMany: (...args: unknown[]) => mockMemberFindMany(...args),
     },
     room: {
       findFirst: (...args: unknown[]) => mockRoomFindFirst(...args),
@@ -193,5 +195,101 @@ describe("GET /internal/rooms/by-github-repository/:githubRepositoryId", () => {
     expect(raw).not.toMatch(/password/i);
     expect(raw).not.toMatch(/member/i);
     expect(raw).not.toMatch(/secret/i);
+  });
+});
+
+describe("POST /internal/rooms/:roomId/members/resolve", () => {
+  let app: ReturnType<typeof express>;
+
+  beforeAll(async () => {
+    const appModule = (await import("../../app.js")) as unknown as { default: ReturnType<typeof express> };
+    app = appModule.default;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 without the internal service secret header", async () => {
+    const res = await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .send({ usernames: ["alice"] });
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for a malformed roomId", async () => {
+    const res = await request(app)
+      .post("/internal/rooms/not-a-uuid/members/resolve")
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({ usernames: ["alice"] });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when usernames is missing or not an array", async () => {
+    const res = await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("returns an empty list without querying the database when usernames is empty", async () => {
+    const res = await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({ usernames: [] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ members: [] });
+    expect(mockMemberFindMany).not.toHaveBeenCalled();
+  });
+
+  it("resolves only usernames that belong to actual members of this room", async () => {
+    mockMemberFindMany.mockResolvedValue([
+      { user: { id: "user-1", username: "alice" } },
+      { user: { id: "user-2", username: "bob" } },
+    ]);
+
+    const res = await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({ usernames: ["alice", "bob", "not-a-member"] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      members: [
+        { userId: "user-1", username: "alice" },
+        { userId: "user-2", username: "bob" },
+      ],
+    });
+  });
+
+  it("scopes the lookup to this room and matches usernames case-insensitively", async () => {
+    mockMemberFindMany.mockResolvedValue([]);
+
+    await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({ usernames: ["Alice"] });
+
+    expect(mockMemberFindMany).toHaveBeenCalledWith({
+      where: {
+        roomId: ROOM_ID,
+        user: { username: { in: ["Alice"], mode: "insensitive" } },
+      },
+      select: { user: { select: { id: true, username: true } } },
+    });
+  });
+
+  it("silently drops usernames that don't resolve to any member, rather than erroring", async () => {
+    mockMemberFindMany.mockResolvedValue([]);
+
+    const res = await request(app)
+      .post(`/internal/rooms/${ROOM_ID}/members/resolve`)
+      .set("x-internal-service-secret", "test-internal-secret")
+      .send({ usernames: ["nobody-here"] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ members: [] });
   });
 });

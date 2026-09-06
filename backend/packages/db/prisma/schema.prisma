@@ -162,6 +162,31 @@ model Message {
 
   content String
 
+  // Thread support. A real self-relation (unlike roomId/userId above) is
+  // safe here because both sides live in this same service's table — no
+  // cross-service cascade risk. onDelete: Cascade means deleting a parent
+  // message (soft-delete only ever sets deletedAt in practice, but this
+  // guards the hard-delete/test-cleanup path too) removes its replies
+  // rather than leaving orphaned rows with a dangling parentMessageId.
+  parentMessageId String?
+  parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  replies         Message[] @relation("MessageReplies")
+
+  // Denormalized on the parent for O(1) reply-count display without a
+  // COUNT(*) on every message list render. Maintained by the service layer
+  // (incremented on reply create, decremented on reply delete) rather than
+  // a DB trigger, matching this codebase's existing preference for
+  // application-level invariants over DB-level ones (see sequence above).
+  replyCount Int @default(0)
+
+  // Resolved, real room-member user ids only — never raw client-supplied
+  // text. Populated server-side by matching @handles in content against
+  // actual RoomMember rows at send/edit time (see mention resolution in
+  // message.service.ts). A plain text[] column, not a join table: reads
+  // (rendering a message) never need to join, and this scale doesn't
+  // warrant an indexed "messages mentioning me" query today.
+  mentionedUserIds String[] @default([])
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   editedAt  DateTime?
@@ -169,4 +194,5 @@ model Message {
 
   @@index([roomId, createdAt])
   @@index([roomId, sequence])
+  @@index([parentMessageId])
 }

@@ -42,3 +42,44 @@ export async function getRoomMembership(roomId: string, userId: string): Promise
 
   return (data as { membership: RoomMembership }).membership;
 }
+
+export type ResolvedMentionMember = {
+  userId: string;
+  username: string;
+};
+
+/**
+ * Resolves @mention candidate usernames against real current members of a
+ * room via Room Service — the only source of truth for room membership.
+ * Chat Service never trusts client-supplied user ids for mentions; it only
+ * ever passes along usernames parsed from message text, and stores back
+ * whatever subset Room Service confirms are actual members.
+ */
+export async function resolveMentionedMembers(
+  roomId: string,
+  usernames: string[],
+): Promise<ResolvedMentionMember[]> {
+  if (usernames.length === 0) return [];
+
+  const response = await fetch(
+    `${internalConfig.roomServiceUrl}/internal/rooms/${encodeURIComponent(roomId)}/members/resolve`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-internal-service-secret": internalConfig.serviceSecret,
+      },
+      body: JSON.stringify({ usernames }),
+    },
+  );
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message = (data as { error?: string } | null)?.error ?? "Room Service request failed";
+    throw new RoomServiceClientError(message, response.status);
+  }
+
+  return (data as { members: ResolvedMentionMember[] }).members;
+}
