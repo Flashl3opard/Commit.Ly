@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useLayoutEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 
@@ -22,11 +22,21 @@ type DialogProps = {
 export function Dialog({ open, onClose, title, description, children }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Callers routinely pass an inline onClose (`() => setOpen(false)`), which
+  // is a new function on every render of the parent. Reading it through a
+  // ref — updated every render via useLayoutEffect, before the keydown
+  // effect below could ever fire — means the escape handler always calls
+  // the latest onClose without onClose needing to be a dependency itself.
+  const onCloseRef = useRef(onClose);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     }
     document.addEventListener("keydown", handleKeyDown);
     panelRef.current?.focus();
@@ -38,7 +48,14 @@ export function Dialog({ open, onClose, title, description, children }: DialogPr
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+    // Intentionally depends on `open` only — re-running this on every
+    // onClose identity change (which happens on nearly every parent
+    // re-render) would call panelRef.current?.focus() again mid-interaction,
+    // yanking focus out of whatever input inside the dialog the user is
+    // actively typing in. This was the exact cause of the dialog's inputs
+    // losing focus after a single keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   return (
     <AnimatePresence>
