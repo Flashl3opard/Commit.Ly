@@ -1,9 +1,24 @@
 import { chatRequest } from "./client";
 
+export type SystemEventMetadata = {
+  githubRepositoryId?: string;
+  githubUsername?: string;
+  branch?: string;
+  baseBranch?: string;
+  commitCount?: number;
+  afterSha?: string;
+  number?: number;
+  title?: string;
+  url?: string;
+};
+
 export type Message = {
   id: string;
   roomId: string;
-  userId: string;
+  userId: string | null;
+  senderType: "user" | "system";
+  systemEventType: string | null;
+  metadata: SystemEventMetadata | null;
   content: string | null;
   createdAt: string;
   updatedAt: string;

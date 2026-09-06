@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { roomMessagesRouter } from "./modules/message/message.routes";
 import { messageByIdRouter } from "./modules/message/messageById.routes";
+import systemMessageRoutes from "./modules/message/systemMessage.routes";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(
   })
 );
 
+app.use("/internal", systemMessageRoutes);
 app.use("/rooms/:roomId/messages", roomMessagesRouter);
 app.use("/messages/:messageId", messageByIdRouter);
 

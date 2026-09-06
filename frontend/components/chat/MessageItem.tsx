@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { GithubActivityMessage } from "./GithubActivityMessage";
 import type { Message } from "@/lib/api/chat";
 import type { RoomMember } from "@/lib/api/rooms";
 
@@ -31,6 +32,10 @@ export function MessageItem({ message, sender, isOwnMessage, isGroupedWithPrevio
 
   const isDeleted = message.deletedAt !== null;
   const senderName = sender?.displayName ?? sender?.username ?? "Unknown user";
+
+  if (message.senderType === "system") {
+    return <GithubActivityMessage message={message} />;
+  }
 
   async function handleSaveEdit() {
     const trimmed = draft.trim();
