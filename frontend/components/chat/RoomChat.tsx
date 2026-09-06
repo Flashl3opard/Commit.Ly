@@ -12,6 +12,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { NewMessagesButton } from "./NewMessagesButton";
 import { ThreadPanel } from "./ThreadPanel";
+import { PresenceToast } from "./PresenceToast";
 import { Loader2, MessageSquare, AlertCircle } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
 
@@ -61,6 +62,12 @@ export function RoomChat({ room }: { room: RoomDetails }) {
             <ConnectionStatusBadge state={chat.connectionState} />
           </div>
         )}
+
+        <PresenceToast
+          events={chat.recentPresenceEvents}
+          members={room.members}
+          onDismiss={(userId) => chat.dismissPresenceToast(userId)}
+        />
 
         {chat.loadingInitial ? (
           <div className="flex flex-1 items-center justify-center">

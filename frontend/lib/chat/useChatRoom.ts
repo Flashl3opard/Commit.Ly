@@ -17,6 +17,7 @@ export type ChatRoomState = {
   onlineUserIds: Set<string>;
   typingUserIds: Set<string>;
   hasNewMessagesBelow: boolean;
+  recentPresenceEvents: { id: string; userId: string }[];
 };
 
 export type ChatRoomActions = {
@@ -26,6 +27,7 @@ export type ChatRoomActions = {
   sendTypingStop: () => void;
   /** Merge a message the caller already knows about (e.g. its own optimistic send/edit/delete REST response) without waiting for the WS echo. */
   upsertLocalMessage: (message: Message) => void;
+  dismissPresenceToast: (userId: string) => void;
 };
 
 const TYPING_STOP_AFTER_MS = 3000;
@@ -55,7 +57,8 @@ type Action =
   | { kind: "typingStarted"; userId: string }
   | { kind: "typingStopped"; userId: string }
   | { kind: "messageUpserted"; message: Message; markUnseen: boolean }
-  | { kind: "scrollPosition"; isNearBottom: boolean };
+  | { kind: "scrollPosition"; isNearBottom: boolean }
+  | { kind: "presenceToastShown"; userId: string };
 
 function initialState(roomId: string | null): InternalState {
   return {
@@ -69,6 +72,7 @@ function initialState(roomId: string | null): InternalState {
     onlineUserIds: new Set(),
     typingUserIds: new Set(),
     hasNewMessagesBelow: false,
+    recentPresenceEvents: [],
   };
 }
 
@@ -91,13 +95,21 @@ function reducer(state: InternalState, action: Action): InternalState {
       return { ...state, connectionState: action.value };
     case "presenceSnapshot":
       return { ...state, onlineUserIds: new Set(action.users) };
-    case "presenceJoined":
-      return { ...state, onlineUserIds: new Set(state.onlineUserIds).add(action.userId) };
+    case "presenceJoined": {
+      const toastId = `${action.userId}-${Date.now()}`;
+      return {
+        ...state,
+        onlineUserIds: new Set(state.onlineUserIds).add(action.userId),
+        recentPresenceEvents: [...state.recentPresenceEvents, { id: toastId, userId: action.userId }],
+      };
+    }
     case "presenceLeft": {
       const next = new Set(state.onlineUserIds);
       next.delete(action.userId);
       return { ...state, onlineUserIds: next };
     }
+    case "presenceToastShown":
+      return { ...state, recentPresenceEvents: state.recentPresenceEvents.filter((e) => e.userId !== action.userId) };
     case "typingStarted":
       return { ...state, typingUserIds: new Set(state.typingUserIds).add(action.userId) };
     case "typingStopped": {
@@ -273,6 +285,10 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     dispatch({ kind: "messageUpserted", message, markUnseen: false });
   }, []);
 
+  const dismissPresenceToast = useCallback((userId: string) => {
+    dispatch({ kind: "presenceToastShown", userId });
+  }, []);
+
   return {
     messages: state.messages,
     loadingInitial: state.loadingInitial,
@@ -283,10 +299,12 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     onlineUserIds: state.onlineUserIds,
     typingUserIds: state.typingUserIds,
     hasNewMessagesBelow: state.hasNewMessagesBelow,
+    recentPresenceEvents: state.recentPresenceEvents,
     loadOlderMessages,
     notifyScrollPosition,
     sendTypingStart,
     sendTypingStop,
     upsertLocalMessage,
+    dismissPresenceToast,
   };
 }
