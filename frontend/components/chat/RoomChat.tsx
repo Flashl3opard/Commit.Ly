@@ -13,7 +13,8 @@ import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { NewMessagesButton } from "./NewMessagesButton";
 import { ThreadPanel } from "./ThreadPanel";
 import { PresenceToast } from "./PresenceToast";
-import { Loader2, MessageSquare, AlertCircle } from "lucide-react";
+import { CommitlyMark } from "@/components/ui/CommitlyMark";
+import { Loader2, AlertCircle } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
 
 /**
@@ -83,9 +84,16 @@ export function RoomChat({ room }: { room: RoomDetails }) {
           </div>
         ) : chat.messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <MessageSquare className="h-8 w-8 text-muted-2" aria-hidden="true" />
-            <h2 className="mt-3 text-base font-semibold text-foreground">No messages yet.</h2>
-            <p className="mt-1.5 max-w-sm text-sm text-muted">Say hello to get the conversation started.</p>
+            <div className="relative">
+              <div className="absolute inset-0 -z-10 scale-150 opacity-20 blur-2xl" aria-hidden="true">
+                <CommitlyMark className="h-16 w-16" />
+              </div>
+              <CommitlyMark className="h-10 w-10" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold text-foreground">Welcome to {room.name}</h2>
+            <p className="mt-1.5 max-w-sm text-sm text-muted">
+              This is the beginning of the conversation for this repository.
+            </p>
           </div>
         ) : (
           <MessageList
