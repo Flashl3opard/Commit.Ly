@@ -54,7 +54,6 @@ export function Dialog({ open, onClose, title, description, children }: DialogPr
     // yanking focus out of whatever input inside the dialog the user is
     // actively typing in. This was the exact cause of the dialog's inputs
     // losing focus after a single keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   return (

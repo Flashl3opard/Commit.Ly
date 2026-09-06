@@ -7,6 +7,7 @@ import {
   deleteMessage,
   MessageServiceError,
 } from "./message.service";
+import { broadcastMessageEvent } from "../ws/wsServer";
 
 function handleServiceError(err: unknown, res: Response) {
   if (err instanceof MessageServiceError) {
@@ -26,6 +27,7 @@ export async function create(req: Request<{ roomId: string }>, res: Response) {
 
   try {
     const message = await createMessage(req.params.roomId, userId, parsed.data);
+    broadcastMessageEvent(message.roomId, "message.created", message);
     return res.status(201).json({ message });
   } catch (err) {
     return handleServiceError(err, res);
@@ -60,6 +62,7 @@ export async function edit(req: Request<{ messageId: string }>, res: Response) {
 
   try {
     const message = await editMessage(req.params.messageId, userId, parsed.data);
+    broadcastMessageEvent(message.roomId, "message.updated", message);
     return res.status(200).json({ message });
   } catch (err) {
     return handleServiceError(err, res);
@@ -72,6 +75,7 @@ export async function remove(req: Request<{ messageId: string }>, res: Response)
 
   try {
     const message = await deleteMessage(req.params.messageId, userId);
+    broadcastMessageEvent(message.roomId, "message.deleted", message);
     return res.status(200).json({ message });
   } catch (err) {
     return handleServiceError(err, res);

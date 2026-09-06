@@ -85,3 +85,11 @@ export function roomRequest<T>(path: string, options?: RequestOptions): Promise<
   }
   return request<T>(baseUrl, path, options);
 }
+
+export function chatRequest<T>(path: string, options?: RequestOptions): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_CHAT_API_URL;
+  if (!baseUrl) {
+    throw new ApiError("Chat service URL is not configured.", 0);
+  }
+  return request<T>(baseUrl, path, options);
+}
