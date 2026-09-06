@@ -32,6 +32,14 @@ function isSameSenderGroup(a: Message, b: Message): boolean {
   return gapMs < 5 * 60 * 1000;
 }
 
+function githubRailPosition(messages: Message[], index: number): "none" | "start" | "middle" {
+  const current = messages[index];
+  if (current.senderType !== "system") return "none";
+
+  const hasEarlierSystemMessage = messages.slice(0, index).some((m) => m.senderType === "system");
+  return hasEarlierSystemMessage ? "middle" : "start";
+}
+
 export function MessageList({
   messages,
   members,
@@ -112,6 +120,7 @@ export function MessageList({
       {messages.map((message, index) => {
         const previous = index > 0 ? messages[index - 1] : null;
         const isGrouped = previous ? isSameSenderGroup(previous, message) : false;
+        const railPosition = githubRailPosition(messages, index);
         return (
           <MessageItem
             key={message.id}
@@ -119,6 +128,7 @@ export function MessageList({
             sender={message.userId ? membersById.get(message.userId) : undefined}
             isOwnMessage={message.userId !== null && message.userId === currentUserId}
             isGroupedWithPrevious={isGrouped}
+            railPosition={railPosition}
             onEdit={onEdit}
             onDelete={onDelete}
           />

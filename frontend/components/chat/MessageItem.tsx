@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { GithubActivityMessage } from "./GithubActivityMessage";
+import { GithubActivityCard } from "./activity/GithubActivityCard";
 import type { Message } from "@/lib/api/chat";
 import type { RoomMember } from "@/lib/api/rooms";
 
@@ -18,11 +18,12 @@ type MessageItemProps = {
   sender: RoomMember | undefined;
   isOwnMessage: boolean;
   isGroupedWithPrevious: boolean;
+  railPosition: "none" | "start" | "middle";
   onEdit: (messageId: string, content: string) => Promise<void>;
   onDelete: (messageId: string) => Promise<void>;
 };
 
-export function MessageItem({ message, sender, isOwnMessage, isGroupedWithPrevious, onEdit, onDelete }: MessageItemProps) {
+export function MessageItem({ message, sender, isOwnMessage, isGroupedWithPrevious, railPosition, onEdit, onDelete }: MessageItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message.content ?? "");
   const [saving, setSaving] = useState(false);
@@ -34,7 +35,7 @@ export function MessageItem({ message, sender, isOwnMessage, isGroupedWithPrevio
   const senderName = sender?.displayName ?? sender?.username ?? "Unknown user";
 
   if (message.senderType === "system") {
-    return <GithubActivityMessage message={message} />;
+    return <GithubActivityCard message={message} railPosition={railPosition} />;
   }
 
   async function handleSaveEdit() {
