@@ -2,6 +2,7 @@ import { prisma } from "../../config/prisma";
 import { getRoomMembership, RoomServiceClientError } from "../room/roomServiceClient";
 import { encodeCursor, decodeCursor, InvalidCursorError } from "./cursor";
 import type { CreateMessageInput, EditMessageInput, ListMessagesQuery } from "./message.validation";
+import type { CreateSystemMessageInput } from "./systemMessage.validation";
 
 export class MessageServiceError extends Error {
   status: number;
@@ -16,11 +17,19 @@ export class MessageServiceError extends Error {
  * has been soft-deleted — the tombstone still carries id/roomId/userId/
  * timestamps so future realtime/sync consumers can react to the deletion,
  * but the original text is never returned again through any API.
+ *
+ * userId is null only for senderType "system" (e.g. GitHub activity) —
+ * there is no Commit.ly user to attribute those to. systemEventType and
+ * metadata are present only on system messages and carry small, structured,
+ * display-only data — never a raw external payload.
  */
 export type SafeMessage = {
   id: string;
   roomId: string;
-  userId: string;
+  userId: string | null;
+  senderType: "user" | "system";
+  systemEventType: string | null;
+  metadata: Record<string, unknown> | null;
   content: string | null;
   createdAt: string;
   updatedAt: string;
@@ -31,7 +40,10 @@ export type SafeMessage = {
 type MessageRecord = {
   id: string;
   roomId: string;
-  userId: string;
+  userId: string | null;
+  senderType: "USER" | "SYSTEM";
+  systemEventType: string | null;
+  metadata: unknown;
   content: string;
   sequence: bigint;
   createdAt: Date;
@@ -43,7 +55,10 @@ type MessageRecord = {
 function toSafeMessage(message: {
   id: string;
   roomId: string;
-  userId: string;
+  userId: string | null;
+  senderType?: "USER" | "SYSTEM";
+  systemEventType?: string | null;
+  metadata?: unknown;
   content: string;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +69,9 @@ function toSafeMessage(message: {
     id: message.id,
     roomId: message.roomId,
     userId: message.userId,
+    senderType: message.senderType === "SYSTEM" ? "system" : "user",
+    systemEventType: message.systemEventType ?? null,
+    metadata: (message.metadata as Record<string, unknown> | null | undefined) ?? null,
     content: message.deletedAt ? null : message.content,
     createdAt: message.createdAt.toISOString(),
     updatedAt: message.updatedAt.toISOString(),
@@ -95,6 +113,35 @@ export async function createMessage(
     data: {
       roomId,
       userId,
+      content: input.content,
+    },
+  });
+
+  return toSafeMessage(message);
+}
+
+/**
+ * Persists a GitHub activity system message. Callers (the internal
+ * system-messages endpoint) are responsible for authenticating the request
+ * and validating the input shape before reaching here — this function does
+ * not re-verify room membership, since the "room" here is addressed by
+ * GitHub Service's own repository->room lookup, not a Commit.ly user
+ * session. No user-facing membership check applies to a system actor.
+ *
+ * Never accepts or stores a userId — GitHub actors are never mapped to a
+ * Commit.ly user, fake or otherwise.
+ */
+export async function createSystemMessage(
+  roomId: string,
+  input: CreateSystemMessageInput,
+): Promise<SafeMessage> {
+  const message = await prisma.message.create({
+    data: {
+      roomId,
+      userId: null,
+      senderType: "SYSTEM",
+      systemEventType: input.eventType,
+      metadata: input.metadata,
       content: input.content,
     },
   });

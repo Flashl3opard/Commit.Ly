@@ -36,7 +36,10 @@ export type PresenceUser = {
 export type WireMessage = {
   id: string;
   roomId: string;
-  userId: string;
+  userId: string | null;
+  senderType: "user" | "system";
+  systemEventType: string | null;
+  metadata: Record<string, unknown> | null;
   content: string | null;
   createdAt: string;
   updatedAt: string;

@@ -34,7 +34,7 @@ export function AppShell({ children, fillHeight = false }: { children: ReactNode
   return (
     <div className={`flex flex-1 flex-col bg-background ${fillHeight ? "h-screen" : "min-h-screen"}`}>
       <AppNavbar user={user} />
-      <div className={fillHeight ? "flex-1 overflow-hidden" : "flex-1"}>{children}</div>
+      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "flex-1"}>{children}</div>
     </div>
   );
 }

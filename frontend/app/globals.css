@@ -32,18 +32,18 @@
 
 :root[data-theme="light"] {
   --hero-bg-gradient:
-    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(8, 145, 178, 0.08), transparent 65%),
-    linear-gradient(180deg, #f7f9fc, #eef2f7);
-  --background: #f7f9fc;
-  --background-2: #ffffff;
-  --background-3: #eef2f7;
-  --foreground: #10151c;
-  --muted: #5b6472;
-  --muted-2: #8892a0;
-  --border: rgba(15, 35, 55, 0.1);
-  --border-strong: rgba(15, 35, 55, 0.18);
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-solid: #ffffff;
+    radial-gradient(ellipse 900px 550px at 65% 25%, rgba(8, 145, 178, 0.1), transparent 65%),
+    linear-gradient(180deg, #eef5f9, #e3edf5);
+  --background: #eef5f9;
+  --background-2: #e6f1f7;
+  --background-3: #dbeaf2;
+  --foreground: #0d1b24;
+  --muted: #4f6577;
+  --muted-2: #7c93a3;
+  --border: rgba(8, 82, 110, 0.14);
+  --border-strong: rgba(8, 82, 110, 0.24);
+  --surface: rgba(230, 241, 247, 0.78);
+  --surface-solid: #eaf3f8;
   --accent: #0891b2;
   --accent-2: #2563eb;
   --accent-foreground: #ffffff;
@@ -53,11 +53,11 @@
   --success: #059669;
   --success-bg: rgba(5, 150, 105, 0.08);
   --success-border: rgba(5, 150, 105, 0.25);
-  --grid-line: rgba(15, 35, 55, 0.05);
+  --grid-line: rgba(8, 82, 110, 0.07);
   --auth-bg-gradient:
-    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.08), transparent 60%),
-    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.06), transparent 60%),
-    linear-gradient(180deg, #f7f9fc, #eef2f7);
+    radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.1), transparent 60%),
+    radial-gradient(ellipse 600px 500px at 90% 80%, rgba(37, 99, 235, 0.08), transparent 60%),
+    linear-gradient(180deg, #eef5f9, #e3edf5);
 }
 
 @theme inline {

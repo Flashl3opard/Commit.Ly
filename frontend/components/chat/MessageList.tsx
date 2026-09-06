@@ -24,6 +24,8 @@ type MessageListProps = {
 };
 
 function isSameSenderGroup(a: Message, b: Message): boolean {
+  if (a.senderType !== b.senderType) return false;
+  if (a.senderType === "system") return false;
   if (a.userId !== b.userId) return false;
   if (a.deletedAt || b.deletedAt) return false;
   const gapMs = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -114,8 +116,8 @@ export function MessageList({
           <MessageItem
             key={message.id}
             message={message}
-            sender={membersById.get(message.userId)}
-            isOwnMessage={message.userId === currentUserId}
+            sender={message.userId ? membersById.get(message.userId) : undefined}
+            isOwnMessage={message.userId !== null && message.userId === currentUserId}
             isGroupedWithPrevious={isGrouped}
             onEdit={onEdit}
             onDelete={onDelete}

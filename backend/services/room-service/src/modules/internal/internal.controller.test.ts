@@ -9,11 +9,15 @@ process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 process.env.GITHUB_SERVICE_URL ??= "http://localhost:4002";
 
 const mockMemberFindUnique = vi.fn();
+const mockRoomFindFirst = vi.fn();
 
 vi.mock("../../config/prisma", () => ({
   prisma: {
     roomMember: {
       findUnique: (...args: unknown[]) => mockMemberFindUnique(...args),
+    },
+    room: {
+      findFirst: (...args: unknown[]) => mockRoomFindFirst(...args),
     },
   },
 }));
@@ -109,6 +113,85 @@ describe("GET /internal/rooms/:roomId/members/:userId", () => {
 
     const raw = JSON.stringify(res.body);
     expect(raw).not.toMatch(/password/i);
+    expect(raw).not.toMatch(/secret/i);
+  });
+});
+
+describe("GET /internal/rooms/by-github-repository/:githubRepositoryId", () => {
+  let app: ReturnType<typeof express>;
+
+  beforeAll(async () => {
+    const appModule = (await import("../../app.js")) as unknown as { default: ReturnType<typeof express> };
+    app = appModule.default;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 without the internal service secret header", async () => {
+    const res = await request(app).get("/internal/rooms/by-github-repository/123456");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 401 with an incorrect internal service secret", async () => {
+    const res = await request(app)
+      .get("/internal/rooms/by-github-repository/123456")
+      .set("x-internal-service-secret", "wrong-secret");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for a non-numeric githubRepositoryId", async () => {
+    const res = await request(app)
+      .get("/internal/rooms/by-github-repository/not-a-number")
+      .set("x-internal-service-secret", "test-internal-secret");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when no room is associated with the repository", async () => {
+    mockRoomFindFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get("/internal/rooms/by-github-repository/123456")
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns the matching room with a valid internal secret", async () => {
+    mockRoomFindFirst.mockResolvedValue({ id: ROOM_ID });
+
+    const res = await request(app)
+      .get("/internal/rooms/by-github-repository/123456")
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ room: { roomId: ROOM_ID, githubRepositoryId: "123456" } });
+  });
+
+  it("looks up the room by GitHub's numeric repository id via the githubRepository relation, not by name", async () => {
+    mockRoomFindFirst.mockResolvedValue(null);
+
+    await request(app)
+      .get("/internal/rooms/by-github-repository/123456")
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(mockRoomFindFirst).toHaveBeenCalledWith({
+      where: { githubRepository: { githubRepositoryId: BigInt(123456) } },
+      select: { id: true },
+    });
+  });
+
+  it("never includes room name, password hash, or member information in the response", async () => {
+    mockRoomFindFirst.mockResolvedValue({ id: ROOM_ID });
+
+    const res = await request(app)
+      .get("/internal/rooms/by-github-repository/123456")
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toMatch(/password/i);
+    expect(raw).not.toMatch(/member/i);
     expect(raw).not.toMatch(/secret/i);
   });
 });
