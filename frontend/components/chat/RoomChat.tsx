@@ -11,6 +11,7 @@ import { Composer } from "./Composer";
 import { TypingIndicator } from "./TypingIndicator";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { NewMessagesButton } from "./NewMessagesButton";
+import { ThreadPanel } from "./ThreadPanel";
 import { Loader2, MessageSquare, AlertCircle } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
 
@@ -26,6 +27,7 @@ export function RoomChat({ room }: { room: RoomDetails }) {
   const currentUserId = user?.id ?? null;
   const chat = useChatRoom(room.id, currentUserId);
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
+  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(null);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -89,6 +91,7 @@ export function RoomChat({ room }: { room: RoomDetails }) {
             onScrollPositionChange={chat.notifyScrollPosition}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onOpenThread={setOpenThreadMessageId}
             scrollToBottomSignal={scrollToBottomSignal}
           />
         )}
@@ -112,7 +115,14 @@ export function RoomChat({ room }: { room: RoomDetails }) {
         />
       </div>
 
-      <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />
+      {!openThreadMessageId && <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />}
+      {openThreadMessageId &&
+        (() => {
+          const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
+          if (!parentMessage) return null;
+          const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
+          return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
+        })()}
     </ActiveRoomMessagesProvider>
   );
 }

@@ -20,6 +20,7 @@ type MessageListProps = {
   onScrollPositionChange: (isNearBottom: boolean) => void;
   onEdit: (messageId: string, content: string) => Promise<void>;
   onDelete: (messageId: string) => Promise<void>;
+  onOpenThread?: (messageId: string) => void;
   /** Bumped by the parent (e.g. clicking "New messages") to trigger a scroll-to-bottom. */
   scrollToBottomSignal?: number;
 };
@@ -61,6 +62,7 @@ export function MessageList({
   onScrollPositionChange,
   onEdit,
   onDelete,
+  onOpenThread,
   scrollToBottomSignal,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -143,6 +145,7 @@ export function MessageList({
               isOwnMessage={message.userId !== null && message.userId === currentUserId}
               isGroupedWithPrevious={isGrouped}
               railPosition={railPosition}
+              onOpenThread={onOpenThread}
               onEdit={onEdit}
               onDelete={onDelete}
             />
