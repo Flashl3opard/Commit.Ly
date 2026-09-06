@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { Loader2, MessageSquare, ShieldAlert } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
 import { getRoom, type RoomDetails } from "@/lib/api/rooms";
 import { ApiError } from "@/lib/api/types";
 import { RoomHeader } from "@/components/rooms/RoomHeader";
-import { RoomMembersPanel } from "@/components/rooms/RoomMembersPanel";
 import { RoomSettingsDialog } from "@/components/rooms/RoomSettingsDialog";
+import { RoomChat } from "@/components/chat/RoomChat";
 
 type LoadState =
   | { status: "loading"; roomId: string }
@@ -91,20 +91,11 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   const { room } = current;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <RoomHeader room={room} onOpenSettings={() => setSettingsOpen(true)} />
-
-        <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <MessageSquare className="h-8 w-8 text-muted-2" aria-hidden="true" />
-          <h2 className="mt-3 text-base font-semibold text-foreground">Your workspace is ready.</h2>
-          <p className="mt-1.5 max-w-sm text-sm text-muted">
-            Chat and activity will appear here.
-          </p>
-        </main>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <RoomHeader room={room} onOpenSettings={() => setSettingsOpen(true)} />
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <RoomChat room={room} />
       </div>
-
-      <RoomMembersPanel members={room.members} />
 
       <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />
     </div>
