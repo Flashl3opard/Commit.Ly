@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { MessageItem } from "./MessageItem";
+import { DayDivider } from "./DayDivider";
 import type { Message } from "@/lib/api/chat";
 import type { RoomMember } from "@/lib/api/rooms";
 
@@ -38,6 +39,16 @@ function githubRailPosition(messages: Message[], index: number): "none" | "start
 
   const hasEarlierSystemMessage = messages.slice(0, index).some((m) => m.senderType === "system");
   return hasEarlierSystemMessage ? "middle" : "start";
+}
+
+function isDifferentCalendarDay(a: string, b: string): boolean {
+  const dateA = new Date(a);
+  const dateB = new Date(b);
+  return (
+    dateA.getFullYear() !== dateB.getFullYear() ||
+    dateA.getMonth() !== dateB.getMonth() ||
+    dateA.getDate() !== dateB.getDate()
+  );
 }
 
 export function MessageList({
@@ -119,19 +130,23 @@ export function MessageList({
 
       {messages.map((message, index) => {
         const previous = index > 0 ? messages[index - 1] : null;
-        const isGrouped = previous ? isSameSenderGroup(previous, message) : false;
+        const showDayDivider = !previous || isDifferentCalendarDay(previous.createdAt, message.createdAt);
+        const isGrouped = previous && !showDayDivider ? isSameSenderGroup(previous, message) : false;
         const railPosition = githubRailPosition(messages, index);
+
         return (
-          <MessageItem
-            key={message.id}
-            message={message}
-            sender={message.userId ? membersById.get(message.userId) : undefined}
-            isOwnMessage={message.userId !== null && message.userId === currentUserId}
-            isGroupedWithPrevious={isGrouped}
-            railPosition={railPosition}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
+          <div key={message.id}>
+            {showDayDivider && <DayDivider iso={message.createdAt} />}
+            <MessageItem
+              message={message}
+              sender={message.userId ? membersById.get(message.userId) : undefined}
+              isOwnMessage={message.userId !== null && message.userId === currentUserId}
+              isGroupedWithPrevious={isGrouped}
+              railPosition={railPosition}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          </div>
         );
       })}
     </div>
