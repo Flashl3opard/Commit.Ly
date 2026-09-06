@@ -29,6 +29,11 @@ vi.mock("../../config/prisma", () => ({
   },
 }));
 
+const mockBroadcastMessageEvent = vi.fn();
+vi.mock("../ws/wsServer", () => ({
+  broadcastMessageEvent: (...args: unknown[]) => mockBroadcastMessageEvent(...args),
+}));
+
 import { encodeCursor } from "./cursor";
 
 function signToken(userId: string, expiresIn: string | number = "1h") {
@@ -84,6 +89,7 @@ describe("POST /rooms/:roomId/messages", () => {
 
     expect(res.status).toBe(403);
     expect(mockMessageCreate).not.toHaveBeenCalled();
+    expect(mockBroadcastMessageEvent).not.toHaveBeenCalled();
   });
 
   it("creates a message for a room member", async () => {
@@ -107,6 +113,7 @@ describe("POST /rooms/:roomId/messages", () => {
       .send({ content: "Hello team" });
 
     expect(res.status).toBe(201);
+    expect(mockBroadcastMessageEvent).toHaveBeenCalledWith(ROOM_ID, "message.created", res.body.message);
     expect(res.body.message).toEqual({
       id: "msg-uuid-1",
       roomId: ROOM_ID,

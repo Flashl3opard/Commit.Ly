@@ -29,6 +29,11 @@ vi.mock("../../config/prisma", () => ({
   },
 }));
 
+const mockBroadcastMessageEvent = vi.fn();
+vi.mock("../ws/wsServer", () => ({
+  broadcastMessageEvent: (...args: unknown[]) => mockBroadcastMessageEvent(...args),
+}));
+
 function signToken(userId: string, expiresIn: string | number = "1h") {
   const jwt = require("jsonwebtoken");
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn });
@@ -107,6 +112,7 @@ describe("PATCH /messages/:messageId", () => {
     expect(res.status).toBe(200);
     expect(res.body.message.content).toBe("updated content");
     expect(res.body.message.editedAt).not.toBeNull();
+    expect(mockBroadcastMessageEvent).toHaveBeenCalledWith(ROOM_ID, "message.updated", res.body.message);
   });
 
   it("sets editedAt via the update call", async () => {
@@ -211,6 +217,7 @@ describe("DELETE /messages/:messageId", () => {
     const updateCall = mockMessageUpdate.mock.calls[0][0];
     expect(updateCall.where).toEqual({ id: MESSAGE_ID });
     expect(updateCall.data).toEqual({ deletedAt: expect.any(Date) });
+    expect(mockBroadcastMessageEvent).toHaveBeenCalledWith(ROOM_ID, "message.deleted", res.body.message);
   });
 
   it("never returns the original content after deletion", async () => {
