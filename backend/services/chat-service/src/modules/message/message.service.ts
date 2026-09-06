@@ -149,6 +149,24 @@ export async function createSystemMessage(
   return toSafeMessage(message);
 }
 
+const SEARCH_RESULT_LIMIT = 25;
+
+export async function searchMessages(roomId: string, userId: string, query: string): Promise<SafeMessage[]> {
+  await assertRoomMembership(roomId, userId);
+
+  const records: MessageRecord[] = await prisma.message.findMany({
+    where: {
+      roomId,
+      deletedAt: null,
+      content: { contains: query, mode: "insensitive" },
+    },
+    orderBy: { sequence: "desc" },
+    take: SEARCH_RESULT_LIMIT,
+  });
+
+  return records.map(toSafeMessage);
+}
+
 export type MessageHistoryPage = {
   messages: SafeMessage[];
   nextCursor: string | null;
