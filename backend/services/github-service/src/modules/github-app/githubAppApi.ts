@@ -86,7 +86,7 @@ type InstallationAccessTokenResponse = {
   expires_at: string;
 };
 
-async function createInstallationAccessToken(installationId: number): Promise<string> {
+export async function createInstallationAccessToken(installationId: number): Promise<string> {
   const response = await githubAppRequest(`/app/installations/${installationId}/access_tokens`, {
     method: "POST",
   });
@@ -164,5 +164,73 @@ export async function getInstallationRepositories(installationId: number): Promi
     private: repo.private,
     defaultBranch: repo.default_branch ?? null,
     htmlUrl: repo.html_url,
+  }));
+}
+
+export type GithubSearchResult = {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  htmlUrl: string;
+  isPullRequest: boolean;
+};
+
+type SearchIssuesApiItem = {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  html_url: string;
+  pull_request?: unknown;
+};
+
+type SearchIssuesApiResponse = {
+  items: SearchIssuesApiItem[];
+};
+
+const SEARCH_RESULT_LIMIT = 15;
+
+/**
+ * Searches GitHub's issues+PRs search API scoped to one repository, using
+ * a freshly-minted installation access token (never persisted). Callers
+ * must already have verified the requesting user owns the installation
+ * that owns this repository before calling this.
+ */
+export async function searchRepositoryIssuesAndPullRequests(
+  installationId: number,
+  repositoryFullName: string,
+  query: string,
+): Promise<GithubSearchResult[]> {
+  const accessToken = await createInstallationAccessToken(installationId);
+
+  const searchQuery = `repo:${repositoryFullName} ${query}`;
+  const response = await fetch(
+    `${GITHUB_API_BASE}/search/issues?q=${encodeURIComponent(searchQuery)}&per_page=${SEARCH_RESULT_LIMIT}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "commitly-github-service",
+      },
+    },
+  );
+
+  if (response.status === 429 || response.status === 403) {
+    throw new GithubAppApiError("GitHub search is rate-limited");
+  }
+  if (!response.ok) {
+    throw new GithubAppApiError("Failed to search GitHub issues and pull requests");
+  }
+
+  const data = (await response.json()) as SearchIssuesApiResponse;
+  return data.items.map((item) => ({
+    id: item.id,
+    number: item.number,
+    title: item.title,
+    state: item.state,
+    htmlUrl: item.html_url,
+    isPullRequest: item.pull_request !== undefined,
   }));
 }
