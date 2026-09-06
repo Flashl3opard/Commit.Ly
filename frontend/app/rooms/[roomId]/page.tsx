@@ -22,6 +22,7 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   const { roomId } = use(params);
   const [load, setLoad] = useState<LoadState>({ status: "loading", roomId });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const commandPalette = useCommandPalette();
 
   useEffect(() => {
@@ -103,9 +104,14 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <RoomHeader room={room} onOpenSettings={() => setSettingsOpen(true)} onOpenSearch={commandPalette.open} />
+      <RoomHeader
+        room={room}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSearch={commandPalette.open}
+        onToggleMembers={() => setMembersOpen((v) => !v)}
+      />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <RoomChat room={room} />
+        <RoomChat room={room} membersOpen={membersOpen} onCloseMembers={() => setMembersOpen(false)} />
       </div>
 
       <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />

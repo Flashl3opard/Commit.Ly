@@ -14,6 +14,7 @@ import { NewMessagesButton } from "./NewMessagesButton";
 import { ThreadPanel } from "./ThreadPanel";
 import { PresenceToast } from "./PresenceToast";
 import { CommitlyMark } from "@/components/ui/CommitlyMark";
+import { Drawer } from "@/components/layout/Drawer";
 import { Loader2 } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
 
@@ -24,7 +25,15 @@ import type { RoomDetails } from "@/lib/api/rooms";
  * without either component needing to know about the other's state
  * directly, and without a second WebSocket-derived state tree.
  */
-export function RoomChat({ room }: { room: RoomDetails }) {
+export function RoomChat({
+  room,
+  membersOpen,
+  onCloseMembers,
+}: {
+  room: RoomDetails;
+  membersOpen: boolean;
+  onCloseMembers: () => void;
+}) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
   const chat = useChatRoom(room.id, currentUserId);
@@ -130,14 +139,35 @@ export function RoomChat({ room }: { room: RoomDetails }) {
         />
       </div>
 
-      {!openThreadMessageId && <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />}
-      {openThreadMessageId &&
-        (() => {
-          const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
-          if (!parentMessage) return null;
-          const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
-          return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
-        })()}
+      <div className="hidden lg:flex">
+        {!openThreadMessageId && <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />}
+        {openThreadMessageId &&
+          (() => {
+            const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
+            if (!parentMessage) return null;
+            const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
+            return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
+          })()}
+      </div>
+
+      <div className="lg:hidden">
+        <Drawer
+          side="right"
+          open={openThreadMessageId !== null || membersOpen}
+          onClose={openThreadMessageId ? () => setOpenThreadMessageId(null) : onCloseMembers}
+        >
+          {openThreadMessageId ? (
+            (() => {
+              const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
+              if (!parentMessage) return null;
+              const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
+              return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
+            })()
+          ) : (
+            <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />
+          )}
+        </Drawer>
+      </div>
     </ActiveRoomMessagesProvider>
   );
 }
