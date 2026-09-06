@@ -411,6 +411,39 @@ describe("Room Service routes", () => {
 
       expect(JSON.stringify(res.body)).not.toContain("should-never-appear");
     });
+
+    it("includes each member's customStatus from their public profile and the repository's internal id", async () => {
+      mockMemberFindUnique.mockResolvedValue({ roomId, userId: "user-42", role: "OWNER" });
+      mockRoomFindUnique.mockResolvedValue({
+        id: roomId,
+        name: "My Project",
+        roomCode: "123456",
+        createdAt: new Date(),
+        githubRepository: {
+          id: "repo-uuid-1",
+          name: "my-project",
+          fullName: "octocat/my-project",
+          htmlUrl: "https://github.com/octocat/my-project",
+          private: true,
+          defaultBranch: "main",
+        },
+        members: [{ userId: "user-42", role: "OWNER", joinedAt: new Date() }],
+      });
+      mockGetPublicProfile.mockResolvedValue({
+        id: "user-42",
+        username: "octocat",
+        displayName: "Octo Cat",
+        avatarUrl: null,
+        customStatus: "Working on auth",
+      });
+
+      const token = signToken("user-42");
+      const res = await request(app).get(`/rooms/${roomId}`).set("Cookie", [`token=${token}`]);
+
+      expect(res.status).toBe(200);
+      expect(res.body.room.members[0].customStatus).toBe("Working on auth");
+      expect(res.body.room.repository.id).toBe("repo-uuid-1");
+    });
   });
 
   describe("POST /rooms/:roomId/leave", () => {

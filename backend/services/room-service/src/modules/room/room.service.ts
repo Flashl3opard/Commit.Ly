@@ -33,7 +33,7 @@ export type SafeRoomDetails = {
   id: string;
   name: string;
   roomCode: string;
-  repository: { name: string; fullName: string; htmlUrl: string; private: boolean; defaultBranch: string | null };
+  repository: { id: string; name: string; fullName: string; htmlUrl: string; private: boolean; defaultBranch: string | null };
   currentUserRole: RoomRole;
   createdAt: Date;
   members: SafeRoomMember[];
@@ -44,6 +44,7 @@ export type SafeRoomMember = {
   username: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  customStatus: string | null;
   role: RoomRole;
   joinedAt: Date;
 };
@@ -210,6 +211,7 @@ export async function getRoomDetails(userId: string, roomId: string): Promise<Sa
         username: profile?.username ?? null,
         displayName: profile?.displayName ?? null,
         avatarUrl: profile?.avatarUrl ?? null,
+        customStatus: profile?.customStatus ?? null,
         role: member.role,
         joinedAt: member.joinedAt,
       };
@@ -221,6 +223,7 @@ export async function getRoomDetails(userId: string, roomId: string): Promise<Sa
     name: room.name,
     roomCode: room.roomCode,
     repository: {
+      id: room.githubRepository.id,
       name: room.githubRepository.name,
       fullName: room.githubRepository.fullName,
       htmlUrl: room.githubRepository.htmlUrl,

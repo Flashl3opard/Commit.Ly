@@ -5,6 +5,7 @@ export type PublicProfile = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  customStatus: string | null;
 };
 
 /**
@@ -37,5 +38,6 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     username: user.username,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    customStatus: user.customStatus,
   };
 }
