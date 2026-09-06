@@ -21,7 +21,7 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-2.5">
         <div className="flex items-center gap-8">
           <Link href="/" className="font-mono text-base font-semibold tracking-tight text-foreground">
             commit<span className="text-accent">.ly</span>
@@ -35,9 +35,9 @@ export function AppNavbar({ user }: { user: PrivateUser }) {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className={`focus-ring rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                  className={`focus-ring relative rounded-lg px-3 py-1.5 text-sm transition-colors ${
                     isActive
-                      ? "bg-white/[0.06] text-foreground"
+                      ? "bg-accent-soft text-foreground after:absolute after:inset-x-2 after:-bottom-2.25 after:h-0.5 after:rounded-full after:bg-accent"
                       : "text-muted hover:text-foreground"
                   }`}
                 >

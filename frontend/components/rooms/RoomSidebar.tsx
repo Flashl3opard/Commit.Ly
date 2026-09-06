@@ -32,7 +32,7 @@ export function RoomSidebar() {
   return (
     <aside className="flex w-full shrink-0 flex-col border-r border-border bg-background-2/60 md:w-64">
       <div className="flex items-center justify-between px-4 pt-5 pb-2">
-        <h2 className="text-xs font-semibold tracking-wide text-muted-2 uppercase">Workspaces</h2>
+        <h2 className="text-xs font-semibold tracking-wide text-muted-2 uppercase">Rooms</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -86,10 +86,10 @@ export function RoomSidebar() {
                     type="button"
                     onClick={() => router.push(`/rooms/${room.id}`)}
                     aria-current={isActive ? "page" : undefined}
-                    className={`focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                    className={`focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                       isActive
-                        ? "bg-white/[0.07] text-foreground"
-                        : "text-muted hover:bg-white/[0.04] hover:text-foreground"
+                        ? "bg-accent-soft text-foreground"
+                        : "text-muted hover:bg-background-3 hover:text-foreground"
                     }`}
                   >
                     <FolderGit2
