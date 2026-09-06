@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { FolderGit2, Plus, LogIn, Loader2 } from "lucide-react";
+import { Plus, LogIn, Loader2 } from "lucide-react";
 import { useRooms } from "@/lib/rooms/RoomsContext";
+import { useActiveRoomMessages } from "@/lib/rooms/ActiveRoomMessagesContext";
 import { CreateRoomDialog } from "./CreateRoomDialog";
 import { JoinRoomDialog } from "./JoinRoomDialog";
 import { RoomCreatedDialog } from "./RoomCreatedDialog";
+import { RoomSidebarRow } from "./RoomSidebarRow";
 import type { Room } from "@/lib/api/rooms";
 
 export function RoomSidebar() {
   const { rooms, loading, error, addRoom } = useRooms();
   const router = useRouter();
   const pathname = usePathname();
+  const activeRoomMessages = useActiveRoomMessages();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -78,29 +81,15 @@ export function RoomSidebar() {
           </div>
         ) : (
           <ul className="space-y-0.5">
-            {rooms.map((room) => {
-              const isActive = pathname === `/rooms/${room.id}`;
-              return (
-                <li key={room.id}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/rooms/${room.id}`)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                      isActive
-                        ? "bg-accent-soft text-foreground"
-                        : "text-muted hover:bg-background-3 hover:text-foreground"
-                    }`}
-                  >
-                    <FolderGit2
-                      className={`h-4 w-4 shrink-0 ${isActive ? "text-accent" : "text-muted-2"}`}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1 truncate">{room.name}</span>
-                  </button>
-                </li>
-              );
-            })}
+            {rooms.map((room) => (
+              <RoomSidebarRow
+                key={room.id}
+                room={room}
+                isActive={pathname === `/rooms/${room.id}`}
+                activeRoomMessageIds={activeRoomMessages?.roomId === room.id ? activeRoomMessages.messageIds : null}
+                onNavigate={(id) => router.push(`/rooms/${id}`)}
+              />
+            ))}
           </ul>
         )}
       </div>

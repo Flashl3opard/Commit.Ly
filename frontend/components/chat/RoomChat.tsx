@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useChatRoom } from "@/lib/chat/useChatRoom";
+import { ActiveRoomMessagesProvider } from "@/lib/rooms/ActiveRoomMessagesContext";
 import { sendMessage, editMessage, deleteMessage } from "@/lib/api/chat";
 import { RoomMembersPanel } from "@/components/rooms/RoomMembersPanel";
 import { MessageList } from "./MessageList";
@@ -51,7 +52,7 @@ export function RoomChat({ room }: { room: RoomDetails }) {
   );
 
   return (
-    <>
+    <ActiveRoomMessagesProvider value={{ roomId: room.id, messageIds: chat.messages.map((m) => m.id) }}>
       <div className="relative flex min-h-0 flex-1 flex-col">
         {chat.connectionState !== "connected" && (
           <div className="absolute top-2 left-1/2 z-10 -translate-x-1/2">
@@ -112,6 +113,6 @@ export function RoomChat({ room }: { room: RoomDetails }) {
       </div>
 
       <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />
-    </>
+    </ActiveRoomMessagesProvider>
   );
 }
