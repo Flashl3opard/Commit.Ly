@@ -9,6 +9,7 @@ export type RoomRepositorySummary = {
 };
 
 export type RoomRepositoryDetails = RoomRepositorySummary & {
+  id: string;
   private: boolean;
   defaultBranch: string | null;
 };
@@ -27,6 +28,7 @@ export type RoomMember = {
   username: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  customStatus: string | null;
   role: RoomRole;
   joinedAt: string;
 };

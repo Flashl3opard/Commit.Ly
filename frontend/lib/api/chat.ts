@@ -66,3 +66,9 @@ export function deleteMessage(messageId: string): Promise<{ message: Message }> 
     method: "DELETE",
   });
 }
+
+export function searchMessages(roomId: string, query: string): Promise<{ messages: Message[] }> {
+  return chatRequest<{ messages: Message[] }>(
+    `/rooms/${encodeURIComponent(roomId)}/messages/search?q=${encodeURIComponent(query)}`,
+  );
+}

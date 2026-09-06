@@ -55,3 +55,18 @@ export function installGithubAppUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_GITHUB_API_URL;
   return `${baseUrl}/github/app/install`;
 }
+
+export type GithubSearchResult = {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  htmlUrl: string;
+  isPullRequest: boolean;
+};
+
+export function searchGithubActivity(repositoryId: string, query: string): Promise<{ results: GithubSearchResult[] }> {
+  return githubRequest<{ results: GithubSearchResult[] }>(
+    `/github/app/repositories/${encodeURIComponent(repositoryId)}/search?q=${encodeURIComponent(query)}`,
+  );
+}
