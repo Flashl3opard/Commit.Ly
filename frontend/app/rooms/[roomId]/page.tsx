@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { getRoom, type RoomDetails } from "@/lib/api/rooms";
 import { ApiError } from "@/lib/api/types";
 import { RoomHeader } from "@/components/rooms/RoomHeader";
@@ -9,6 +9,7 @@ import { RoomSettingsDialog } from "@/components/rooms/RoomSettingsDialog";
 import { RoomChat } from "@/components/chat/RoomChat";
 import { useCommandPalette } from "@/components/search/useCommandPalette";
 import { CommandPalette } from "@/components/search/CommandPalette";
+import { CommitlyMark } from "@/components/ui/CommitlyMark";
 
 type LoadState =
   | { status: "loading"; roomId: string }
@@ -68,8 +69,8 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   if (current.status === "not-found" || current.status === "forbidden") {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <ShieldAlert className="h-8 w-8 text-muted-2" aria-hidden="true" />
-        <h1 className="mt-3 text-base font-semibold text-foreground">
+        <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
+        <h1 className="mt-4 text-base font-semibold text-foreground">
           {current.status === "forbidden" ? "You don't have access to this room." : "Room not found."}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
@@ -82,11 +83,18 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   if (current.status === "error") {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <ShieldAlert className="h-8 w-8 text-muted-2" aria-hidden="true" />
-        <h1 className="mt-3 text-base font-semibold text-foreground">
+        <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
+        <h1 className="mt-4 text-base font-semibold text-foreground">
           Couldn&apos;t connect to Commit.ly
         </h1>
         <p className="mt-1.5 text-sm text-muted">Check that Room Service is running, then try again.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="focus-ring mt-4 rounded-lg border border-border-strong px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-background-3"
+        >
+          Try again
+        </button>
       </main>
     );
   }

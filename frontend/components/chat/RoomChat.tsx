@@ -14,7 +14,7 @@ import { NewMessagesButton } from "./NewMessagesButton";
 import { ThreadPanel } from "./ThreadPanel";
 import { PresenceToast } from "./PresenceToast";
 import { CommitlyMark } from "@/components/ui/CommitlyMark";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
 
 /**
@@ -79,7 +79,7 @@ export function RoomChat({ room }: { room: RoomDetails }) {
           </div>
         ) : chat.loadError && chat.messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <AlertCircle className="h-8 w-8 text-muted-2" aria-hidden="true" />
+            <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
             <p className="mt-3 text-sm text-muted">{chat.loadError}</p>
           </div>
         ) : chat.messages.length === 0 ? (
