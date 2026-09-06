@@ -18,25 +18,31 @@ Go to GitHub → Settings → Developer settings → GitHub Apps → New GitHub 
 | Homepage URL | `http://localhost:3000` (use your deployed frontend URL in production) |
 | Callback URL | `http://127.0.0.1:4002/github/app/callback` (must match `GITHUB_APP_CALLBACK_URL`) |
 | Setup URL (optional) | Not required — GitHub redirects to the callback URL by default after installation |
-| Webhook | Leave inactive for this phase (see §4 — webhooks are not implemented yet) |
+| Webhook | Active — see §4a for the URL, secret, and required event subscriptions |
 | Where can this app be installed | "Only on this account" for local development is fine; use "Any account" if other users need to install it |
 
 ## 2. Permissions (least privilege)
 
-Grant only what's needed for installation awareness and repository listing.
-Do **not** enable write permissions — none are required yet.
+Grant only what's needed. Write permissions are never required.
 
 | Permission | Access | Why |
 |---|---|---|
 | Repository metadata | Read-only | Required to list installed repositories and their basic info (name, owner, default branch, visibility). |
-| Contents | Not requested | Not needed until Room Service reads repository content — add later, read-only, when that phase begins. |
-| Pull requests | Not requested | Not needed until webhook/event integration — add later, read-only. |
-| Issues | Not requested | Same as above. |
-| Checks / commit statuses | Not requested | Same as above. |
+| Contents | Read-only | Required for GitHub to deliver `push` webhook events. |
+| Pull requests | Read-only | Required for GitHub to deliver `pull_request` webhook events (Stage A/B/C). |
+| Issues | Read-only | Required for GitHub to deliver `issues` webhook events (Stage A/B/C). |
+| Checks / commit statuses | Not requested | Not needed by any current phase. |
 
-Explicitly **not requested**: administration, contents write, pull requests
-write, issues write, or any other write permission. This phase only reads
-which repositories Commit.ly has been authorized to access.
+Explicitly **not requested**: administration, or any write permission. Note
+that GitHub only allows subscribing to `pull_request`/`issues`/`push`
+webhook events once the matching permission above is granted — granting the
+permission and checking the event box are two separate, both-required
+steps (see §4a).
+
+If you change permissions on an app that is already installed, GitHub
+requires the installing user to re-accept the updated permissions before
+the new webhook events start being delivered — check your installed GitHub
+Apps page for a pending approval after saving permission changes.
 
 ## 3. Generate credentials
 
@@ -52,8 +58,47 @@ After creating the App:
    Paste the output as `GITHUB_APP_PRIVATE_KEY` in `.env`.
 4. Under "Client secrets", generate one → `GITHUB_APP_CLIENT_SECRET`. The
    **Client ID** shown on the same page → `GITHUB_APP_CLIENT_ID`.
-5. If you enable webhooks later, set a webhook secret → `GITHUB_APP_WEBHOOK_SECRET`.
-   A placeholder value is fine for now since no webhook endpoint exists yet.
+5. Set a webhook secret (any long random string) → `GITHUB_APP_WEBHOOK_SECRET`.
+   This same value must also be entered as the webhook secret in the App's
+   settings page (§4a) — GitHub and Commit.ly must use the identical value.
+
+## 4a. Webhook configuration (required for GitHub activity in rooms)
+
+Without this section, the webhook endpoint (`POST /github/webhooks`) exists
+and works correctly, but GitHub will never call it — no event will ever
+arrive, and nothing will appear broken in Commit.ly's own logs because
+nothing was ever received. This has bitten real setups: the webhook toggle
+being "Active" is not sufficient on its own.
+
+1. **Local development only**: GitHub cannot deliver to `127.0.0.1` or
+   `localhost` — start a tunnel first: `ngrok http 4002`, then use the
+   printed `https://*.ngrok-free.app` (or `.dev`) URL below in place of
+   `127.0.0.1:4002`. The URL changes every ngrok restart on the free tier,
+   so the webhook URL in GitHub must be updated each time, or use a paid
+   static domain.
+2. On the GitHub App's settings page, under **General**:
+   - **Webhook → Active**: checked
+   - **Webhook URL**: `https://<your-tunnel-or-domain>/github/webhooks`
+   - **Webhook secret**: the exact same value as `GITHUB_APP_WEBHOOK_SECRET`
+3. Under **Permissions & events → Permissions**, grant **Issues**,
+   **Pull requests**, and **Contents** as Read-only (see §2) — the event
+   checkboxes in the next step will not persist without the matching
+   permission.
+4. Under **Permissions & events → Subscribe to events**, check **Issues**,
+   **Pull request**, and **Push**.
+5. Click **Save changes** at the bottom and confirm the "Changes saved"
+   banner appears.
+6. If the App was already installed on an account before this change,
+   GitHub requires that installer to accept the updated permissions before
+   any new event type is delivered — check
+   `github.com/settings/installations` (or the org equivalent) for a
+   pending approval.
+7. To verify delivery is actually working, open the ngrok web inspector at
+   `http://127.0.0.1:4040` (while the tunnel is running) and watch for
+   `POST /github/webhooks` requests with `X-GitHub-Event: issues` /
+   `pull_request` / `push` after triggering the corresponding action on
+   GitHub. A `ping` event only confirms the webhook itself is reachable —
+   it does not confirm any of the three event subscriptions are active.
 
 ## 4. Required environment variables
 
