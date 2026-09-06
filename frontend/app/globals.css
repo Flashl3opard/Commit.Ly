@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/*
+ * Panel depth contract (both themes):
+ *   --background    app shell background
+ *   --background-2  sidebars, panels, resting GitHub-activity cards
+ *   --background-3  hover/active surfaces, nested content within a panel
+ * New surfaces should pick one of these three rather than an ad-hoc
+ * bg-white/[0.0N] overlay.
+ */
 :root {
   --background: #06080b;
   --background-2: #0c1117;
@@ -20,6 +28,10 @@
   --success: #34d399;
   --success-bg: rgba(52, 211, 153, 0.1);
   --success-border: rgba(52, 211, 153, 0.3);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  --accent-soft: rgba(34, 211, 238, 0.08);
   --grid-line: rgba(148, 199, 224, 0.05);
   --auth-bg-gradient:
     radial-gradient(ellipse 800px 500px at 30% 20%, rgba(34, 211, 238, 0.09), transparent 60%),
@@ -53,6 +65,10 @@
   --success: #059669;
   --success-bg: rgba(5, 150, 105, 0.08);
   --success-border: rgba(5, 150, 105, 0.25);
+  --warning: #b45309;
+  --warning-bg: rgba(180, 83, 9, 0.08);
+  --warning-border: rgba(180, 83, 9, 0.25);
+  --accent-soft: rgba(8, 145, 178, 0.08);
   --grid-line: rgba(8, 82, 110, 0.07);
   --auth-bg-gradient:
     radial-gradient(ellipse 800px 500px at 30% 20%, rgba(8, 145, 178, 0.1), transparent 60%),
@@ -80,6 +96,10 @@
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
   --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
