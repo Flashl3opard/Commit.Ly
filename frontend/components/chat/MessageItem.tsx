@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Check, X, Loader2, Copy, Smile, Reply } from "lucide-react";
+import { Pencil, Trash2, Check, X, Loader2, Copy, Smile, Reply, MessageSquare } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { GithubActivityCard } from "./activity/GithubActivityCard";
+import { renderMessageContent } from "./mentionRendering";
 import type { Message } from "@/lib/api/chat";
 import type { RoomMember } from "@/lib/api/rooms";
 
@@ -16,6 +17,7 @@ function formatTimestamp(iso: string): string {
 type MessageItemProps = {
   message: Message;
   sender: RoomMember | undefined;
+  members: RoomMember[];
   isOwnMessage: boolean;
   isGroupedWithPrevious: boolean;
   railPosition: "none" | "start" | "middle";
@@ -27,6 +29,7 @@ type MessageItemProps = {
 export function MessageItem({
   message,
   sender,
+  members,
   isOwnMessage,
   isGroupedWithPrevious,
   railPosition,
@@ -151,12 +154,23 @@ export function MessageItem({
           </div>
         ) : (
           <p className="whitespace-pre-wrap break-words text-sm text-foreground">
-            {message.content}
+            {message.content ? renderMessageContent(message.content, message.mentionedUserIds, members) : null}
             {message.editedAt && <span className="ml-1.5 text-xs text-muted-2">(edited)</span>}
           </p>
         )}
 
         {actionError && <p className="mt-1 text-xs text-danger">{actionError}</p>}
+
+        {!message.parentMessageId && message.replyCount > 0 && onOpenThread && (
+          <button
+            type="button"
+            onClick={() => onOpenThread(message.id)}
+            className="focus-ring mt-1 flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-accent hover:underline"
+          >
+            <MessageSquare className="h-3 w-3" aria-hidden="true" />
+            {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}
+          </button>
+        )}
       </div>
 
       {!isEditing && (

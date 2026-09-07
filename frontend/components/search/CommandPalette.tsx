@@ -2,12 +2,24 @@
 
 import { useEffect, useReducer, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Hash, MessageSquare, GitPullRequest, User, Loader2 } from "lucide-react";
+import { Search, Hash, MessageSquare, GitBranch, GitPullRequest, User, Loader2 } from "lucide-react";
 import { useRooms } from "@/lib/rooms/RoomsContext";
 import { searchMessages } from "@/lib/api/chat";
 import { searchGithubActivity, type GithubSearchResult } from "@/lib/api/github";
 import type { Message } from "@/lib/api/chat";
 import type { RoomMember } from "@/lib/api/rooms";
+
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 const DEBOUNCE_MS = 400;
 
@@ -55,6 +67,19 @@ function reducer(state: State, action: Action): State {
 export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteProps) {
   const { rooms } = useRooms();
   const router = useRouter();
+  const membersById = new Map((currentRoom?.members ?? []).map((m) => [m.userId, m]));
+
+  function goToMessage(message: Message) {
+    onClose();
+    if (!currentRoom) return;
+    // A reply's thread is opened via its parent's id — the reply itself
+    // never renders as a standalone row in the room view. Falls back to
+    // a plain room navigation (no thread auto-opened) if the target isn't
+    // in the room's most recent message page; there's no "fetch one
+    // arbitrary message/thread by id" endpoint to page further back with.
+    const threadId = message.parentMessageId ?? (message.replyCount > 0 ? message.id : null);
+    router.push(threadId ? `/rooms/${currentRoom.id}?thread=${threadId}` : `/rooms/${currentRoom.id}`);
+  }
   const [state, dispatch] = useReducer(reducer, initialState);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -132,29 +157,72 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
         </div>
 
         <div className="max-h-96 overflow-y-auto py-2">
-          {state.messageResults.length > 0 && (
-            <div className="px-2 py-1">
-              <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">Messages</p>
-              {state.messageResults.map((message) => (
-                <button
-                  key={message.id}
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    if (currentRoom) router.push(`/rooms/${currentRoom.id}`);
-                  }}
-                  className="focus-ring flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-foreground hover:bg-background-3"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{message.content}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const humanMessages = state.messageResults.filter((m) => m.senderType === "user");
+            if (humanMessages.length === 0) return null;
+            return (
+              <div className="px-2 py-1">
+                <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">Messages</p>
+                {humanMessages.map((message) => {
+                  const sender = message.userId ? membersById.get(message.userId) : undefined;
+                  return (
+                    <button
+                      key={message.id}
+                      type="button"
+                      onClick={() => goToMessage(message)}
+                      className="focus-ring flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-background-3"
+                    >
+                      <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="font-medium text-foreground">
+                            {sender?.displayName ?? sender?.username ?? "Unknown user"}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-2">{formatRelativeTime(message.createdAt)}</span>
+                          {message.parentMessageId && (
+                            <span className="shrink-0 text-xs text-muted-2">· in thread</span>
+                          )}
+                        </span>
+                        <span className="block truncate text-muted">{message.content}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const systemMessages = state.messageResults.filter((m) => m.senderType === "system");
+            if (systemMessages.length === 0) return null;
+            return (
+              <div className="px-2 py-1">
+                <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">
+                  Repository Activity
+                </p>
+                {systemMessages.map((message) => (
+                  <button
+                    key={message.id}
+                    type="button"
+                    onClick={() => goToMessage(message)}
+                    className="focus-ring flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-background-3"
+                  >
+                    <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">
+                      <span className="text-xs text-muted-2">{formatRelativeTime(message.createdAt)}</span>
+                      <span className="block truncate text-foreground">{message.content}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {state.githubResults.length > 0 && (
             <div className="px-2 py-1">
-              <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">GitHub</p>
+              <p className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-2 uppercase">
+                Issues &amp; Pull Requests
+              </p>
               {state.githubResults.map((result) => (
                 <a
                   key={result.id}
@@ -167,6 +235,7 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
                   <GitPullRequest className="h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
                   <span className="shrink-0 font-mono text-xs text-muted-2">#{result.number}</span>
                   <span className="min-w-0 flex-1 truncate text-foreground">{result.title}</span>
+                  <span className="shrink-0 text-xs text-muted-2">{result.state}</span>
                 </a>
               ))}
             </div>
@@ -187,6 +256,9 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
                 >
                   <User className="h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{member.displayName ?? member.username}</span>
+                  {member.displayName && member.username && (
+                    <span className="shrink-0 truncate text-xs text-muted-2">@{member.username}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -209,6 +281,7 @@ export function CommandPalette({ isOpen, onClose, currentRoom }: CommandPaletteP
                 >
                   <Hash className="h-3.5 w-3.5 shrink-0 text-muted-2" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{room.name}</span>
+                  <span className="shrink-0 truncate font-mono text-xs text-muted-2">{room.repository.fullName}</span>
                 </button>
               ))
             )}

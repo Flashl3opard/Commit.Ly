@@ -46,8 +46,11 @@ export async function createThreadReply(req: Request<{ roomId: string; messageId
   }
 
   try {
-    const reply = await createReply(req.params.roomId, req.params.messageId, userId, parsed.data);
+    const { reply, parent } = await createReply(req.params.roomId, req.params.messageId, userId, parsed.data);
     broadcastMessageEvent(reply.roomId, "message.created", reply);
+    // The parent's replyCount changed — broadcast it too so clients whose
+    // thread panel for this message isn't open still see the count update.
+    broadcastMessageEvent(parent.roomId, "message.updated", parent);
     return res.status(201).json({ message: reply });
   } catch (err) {
     return handleServiceError(err, res);
@@ -106,9 +109,12 @@ export async function remove(req: Request<{ messageId: string }>, res: Response)
   if (!userId) return res.status(401).json({ error: "Authentication required." });
 
   try {
-    const message = await deleteMessage(req.params.messageId, userId);
-    broadcastMessageEvent(message.roomId, "message.deleted", message);
-    return res.status(200).json({ message });
+    const { deleted, updatedParent } = await deleteMessage(req.params.messageId, userId);
+    broadcastMessageEvent(deleted.roomId, "message.deleted", deleted);
+    if (updatedParent) {
+      broadcastMessageEvent(updatedParent.roomId, "message.updated", updatedParent);
+    }
+    return res.status(200).json({ message: deleted });
   } catch (err) {
     return handleServiceError(err, res);
   }

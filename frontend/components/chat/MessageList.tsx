@@ -142,6 +142,7 @@ export function MessageList({
             <MessageItem
               message={message}
               sender={message.userId ? membersById.get(message.userId) : undefined}
+              members={members}
               isOwnMessage={message.userId !== null && message.userId === currentUserId}
               isGroupedWithPrevious={isGrouped}
               railPosition={railPosition}

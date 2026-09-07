@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getRoom, type RoomDetails } from "@/lib/api/rooms";
 import { ApiError } from "@/lib/api/types";
+import { errorStateCopyFor, type ErrorStateCopy } from "@/lib/api/errorState";
 import { RoomHeader } from "@/components/rooms/RoomHeader";
 import { RoomSettingsDialog } from "@/components/rooms/RoomSettingsDialog";
 import { RoomChat } from "@/components/chat/RoomChat";
 import { useCommandPalette } from "@/components/search/useCommandPalette";
 import { CommandPalette } from "@/components/search/CommandPalette";
-import { CommitlyMark } from "@/components/ui/CommitlyMark";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { useLastVisitedRoom } from "@/lib/rooms/useLastVisitedRoom";
 
 type LoadState =
@@ -17,7 +19,7 @@ type LoadState =
   | { status: "ready"; roomId: string; room: RoomDetails }
   | { status: "not-found"; roomId: string }
   | { status: "forbidden"; roomId: string }
-  | { status: "error"; roomId: string };
+  | { status: "error"; roomId: string; copy: ErrorStateCopy };
 
 export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
@@ -25,6 +27,9 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const commandPalette = useCommandPalette();
+  const searchParams = useSearchParams();
+  const initialOpenThreadId = searchParams.get("thread");
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +48,11 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
           setLoad({ status: err.status === 403 ? "forbidden" : "not-found", roomId });
           return;
         }
-        setLoad({ status: "error", roomId });
+        setLoad({
+          status: "error",
+          roomId,
+          copy: errorStateCopyFor(err, "Check that Room Service is running, then try again."),
+        });
       });
 
     return () => {
@@ -72,33 +81,20 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
 
   if (current.status === "not-found" || current.status === "forbidden") {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
-        <h1 className="mt-4 text-base font-semibold text-foreground">
-          {current.status === "forbidden" ? "You don't have access to this room." : "Room not found."}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted">
-          It may have been deleted, or you may need a room code and password to join.
-        </p>
+      <main className="flex flex-1 flex-col">
+        <ErrorState
+          title={current.status === "forbidden" ? "403 — Access denied." : "Room not found."}
+          description="It may have been deleted, or you may need a room code and password to join."
+          onBack={() => router.push("/rooms")}
+        />
       </main>
     );
   }
 
   if (current.status === "error") {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
-        <h1 className="mt-4 text-base font-semibold text-foreground">
-          Couldn&apos;t connect to Commit.ly
-        </h1>
-        <p className="mt-1.5 text-sm text-muted">Check that Room Service is running, then try again.</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="focus-ring mt-4 rounded-lg border border-border-strong px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-background-3"
-        >
-          Try again
-        </button>
+      <main className="flex flex-1 flex-col">
+        <ErrorState title={current.copy.title} description={current.copy.description} onRetry={() => window.location.reload()} />
       </main>
     );
   }
@@ -114,7 +110,12 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
         onToggleMembers={() => setMembersOpen((v) => !v)}
       />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <RoomChat room={room} membersOpen={membersOpen} onCloseMembers={() => setMembersOpen(false)} />
+        <RoomChat
+          room={room}
+          membersOpen={membersOpen}
+          onCloseMembers={() => setMembersOpen(false)}
+          initialOpenThreadId={initialOpenThreadId}
+        />
       </div>
 
       <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />

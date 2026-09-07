@@ -11,6 +11,7 @@ import {
   type GithubAppRepository,
 } from "@/lib/api/github";
 import { GithubIcon } from "@/components/ui/GithubIcon";
+import { ErrorState } from "@/components/ui/ErrorState";
 
 /**
  * Repository access via the Commit.ly GitHub App — a distinct concept from
@@ -107,7 +108,11 @@ export function GithubAppSection() {
         )}
       </div>
 
-      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+      {error && (
+        <div className="mt-3">
+          <ErrorState title="GitHub connection failed" description={error} fill={false} />
+        </div>
+      )}
 
       {showRepositories && (
         <div className="mt-5 border-t border-border pt-5">
@@ -119,7 +124,12 @@ export function GithubAppSection() {
               Loading repositories…
             </div>
           ) : repositoriesError ? (
-            <p className="mt-3 text-sm text-danger">{repositoriesError}</p>
+            <ErrorState
+              title="Couldn't load repositories"
+              description={repositoriesError}
+              onRetry={handleViewRepositories}
+              fill={false}
+            />
           ) : repositories && repositories.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {repositories.map((repo) => (

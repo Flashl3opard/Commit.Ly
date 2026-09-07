@@ -14,6 +14,7 @@ import { NewMessagesButton } from "./NewMessagesButton";
 import { ThreadPanel } from "./ThreadPanel";
 import { PresenceToast } from "./PresenceToast";
 import { CommitlyMark } from "@/components/ui/CommitlyMark";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Drawer } from "@/components/layout/Drawer";
 import { Loader2 } from "lucide-react";
 import type { RoomDetails } from "@/lib/api/rooms";
@@ -29,16 +30,19 @@ export function RoomChat({
   room,
   membersOpen,
   onCloseMembers,
+  initialOpenThreadId,
 }: {
   room: RoomDetails;
   membersOpen: boolean;
   onCloseMembers: () => void;
+  /** Opens straight to a thread on mount — used when arriving via a search result for a reply. */
+  initialOpenThreadId?: string | null;
 }) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
   const chat = useChatRoom(room.id, currentUserId);
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
-  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(null);
+  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(initialOpenThreadId ?? null);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -87,10 +91,7 @@ export function RoomChat({
             </div>
           </div>
         ) : chat.loadError && chat.messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <CommitlyMark className="h-10 w-10 opacity-40 grayscale" />
-            <p className="mt-3 text-sm text-muted">{chat.loadError}</p>
-          </div>
+          <ErrorState title="Couldn't load messages" description={chat.loadError} onRetry={() => window.location.reload()} />
         ) : chat.messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             <div className="relative">
@@ -135,6 +136,7 @@ export function RoomChat({
           onSend={handleSend}
           onTypingStart={chat.sendTypingStart}
           onTypingStop={chat.sendTypingStop}
+          members={room.members}
           disabled={chat.connectionState === "disconnected"}
         />
       </div>
@@ -146,7 +148,19 @@ export function RoomChat({
             const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
             if (!parentMessage) return null;
             const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
-            return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
+            return (
+              <ThreadPanel
+                roomId={room.id}
+                parentMessage={parentMessage}
+                sender={sender}
+                members={room.members}
+                currentUserId={currentUserId ?? ""}
+                onThreadEvent={chat.onThreadEvent}
+                onTypingStart={chat.sendTypingStart}
+                onTypingStop={chat.sendTypingStop}
+                onClose={() => setOpenThreadMessageId(null)}
+              />
+            );
           })()}
       </div>
 
@@ -161,7 +175,19 @@ export function RoomChat({
               const parentMessage = chat.messages.find((m) => m.id === openThreadMessageId);
               if (!parentMessage) return null;
               const sender = parentMessage.userId ? room.members.find((m) => m.userId === parentMessage.userId) : undefined;
-              return <ThreadPanel parentMessage={parentMessage} sender={sender} onClose={() => setOpenThreadMessageId(null)} />;
+              return (
+                <ThreadPanel
+                  roomId={room.id}
+                  parentMessage={parentMessage}
+                  sender={sender}
+                  members={room.members}
+                  currentUserId={currentUserId ?? ""}
+                  onThreadEvent={chat.onThreadEvent}
+                  onTypingStart={chat.sendTypingStart}
+                  onTypingStop={chat.sendTypingStop}
+                  onClose={() => setOpenThreadMessageId(null)}
+                />
+              );
             })()
           ) : (
             <RoomMembersPanel members={room.members} onlineUserIds={chat.onlineUserIds} />

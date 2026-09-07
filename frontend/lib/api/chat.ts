@@ -20,6 +20,9 @@ export type Message = {
   systemEventType: string | null;
   metadata: SystemEventMetadata | null;
   content: string | null;
+  parentMessageId: string | null;
+  replyCount: number;
+  mentionedUserIds: string[];
   createdAt: string;
   updatedAt: string;
   editedAt: string | null;
@@ -70,5 +73,18 @@ export function deleteMessage(messageId: string): Promise<{ message: Message }> 
 export function searchMessages(roomId: string, query: string): Promise<{ messages: Message[] }> {
   return chatRequest<{ messages: Message[] }>(
     `/rooms/${encodeURIComponent(roomId)}/messages/search?q=${encodeURIComponent(query)}`,
+  );
+}
+
+export function sendReply(roomId: string, parentMessageId: string, content: string): Promise<{ message: Message }> {
+  return chatRequest<{ message: Message }>(
+    `/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(parentMessageId)}/replies`,
+    { method: "POST", body: { content } },
+  );
+}
+
+export function getThreadReplies(roomId: string, parentMessageId: string): Promise<{ messages: Message[] }> {
+  return chatRequest<{ messages: Message[] }>(
+    `/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(parentMessageId)}/replies`,
   );
 }

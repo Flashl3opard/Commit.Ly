@@ -28,11 +28,26 @@ export type ChatRoomActions = {
   /** Merge a message the caller already knows about (e.g. its own optimistic send/edit/delete REST response) without waiting for the WS echo. */
   upsertLocalMessage: (message: Message) => void;
   dismissPresenceToast: (userId: string) => void;
+  /** Subscribe to every reply-shaped message.* WS event for a specific thread, regardless of which room's messages array it would otherwise be excluded from. Returns an unsubscribe function. */
+  onThreadEvent: (parentMessageId: string, handler: (message: Message) => void) => () => void;
 };
 
 const TYPING_STOP_AFTER_MS = 3000;
 
+/**
+ * A reply (parentMessageId set) never enters the top-level messages array —
+ * it belongs only to its ThreadPanel's own reply list (see onThreadEvent
+ * below). The server separately broadcasts a message.updated for the
+ * parent itself (with its bumped replyCount) whenever a reply is created
+ * or deleted, so the parent row's count still updates live through this
+ * same ordinary path even while its thread panel is closed — no special
+ * case needed for that half.
+ */
 function upsertMessage(messages: Message[], incoming: Message): Message[] {
+  if (incoming.parentMessageId) {
+    return messages;
+  }
+
   const index = messages.findIndex((m) => m.id === incoming.id);
   if (index === -1) {
     return [...messages, incoming].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -150,6 +165,7 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
   const isNearBottomRef = useRef(true);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const threadListenersRef = useRef(new Map<string, Set<(message: Message) => void>>());
 
   // Initial history load + room join/leave lifecycle.
   useEffect(() => {
@@ -200,6 +216,9 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
           break;
         case "message.created":
           if (event.message.roomId === roomId) {
+            if (event.message.parentMessageId) {
+              threadListenersRef.current.get(event.message.parentMessageId)?.forEach((fn) => fn(event.message));
+            }
             dispatch({
               kind: "messageUpserted",
               message: event.message,
@@ -210,6 +229,9 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
         case "message.updated":
         case "message.deleted":
           if (event.message.roomId === roomId) {
+            if (event.message.parentMessageId) {
+              threadListenersRef.current.get(event.message.parentMessageId)?.forEach((fn) => fn(event.message));
+            }
             dispatch({ kind: "messageUpserted", message: event.message, markUnseen: false });
           }
           break;
@@ -289,6 +311,16 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     dispatch({ kind: "presenceToastShown", userId });
   }, []);
 
+  const onThreadEvent = useCallback((parentMessageId: string, handler: (message: Message) => void) => {
+    const listeners = threadListenersRef.current;
+    if (!listeners.has(parentMessageId)) listeners.set(parentMessageId, new Set());
+    listeners.get(parentMessageId)!.add(handler);
+    return () => {
+      listeners.get(parentMessageId)?.delete(handler);
+      if (listeners.get(parentMessageId)?.size === 0) listeners.delete(parentMessageId);
+    };
+  }, []);
+
   return {
     messages: state.messages,
     loadingInitial: state.loadingInitial,
@@ -306,5 +338,6 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     sendTypingStop,
     upsertLocalMessage,
     dismissPresenceToast,
+    onThreadEvent,
   };
 }

@@ -142,12 +142,28 @@ export async function createMessage(
  * per the deliberate choice to not build a parallel messaging system. The
  * only extra step is denormalized replyCount maintenance on the parent.
  */
+export type CreateReplyResult = {
+  reply: SafeMessage;
+  parent: SafeMessage;
+};
+
+/**
+ * A reply is an ordinary Message with parentMessageId set — same table,
+ * same send/edit/delete/broadcast/search machinery as a top-level message,
+ * per the deliberate choice to not build a parallel messaging system. The
+ * only extra step is denormalized replyCount maintenance on the parent.
+ *
+ * Returns both the new reply and the updated parent (with its bumped
+ * replyCount) so the caller can broadcast both — clients that only have
+ * the parent visible (thread panel closed) still need a live replyCount,
+ * which only a broadcast of the parent itself can deliver.
+ */
 export async function createReply(
   roomId: string,
   parentMessageId: string,
   userId: string,
   input: CreateMessageInput,
-): Promise<SafeMessage> {
+): Promise<CreateReplyResult> {
   await assertRoomMembership(roomId, userId);
 
   const parent = await prisma.message.findUnique({ where: { id: parentMessageId } });
@@ -160,7 +176,7 @@ export async function createReply(
 
   const mentionedUserIds = await resolveMentions(roomId, input.content);
 
-  const [reply] = await prisma.$transaction([
+  const [reply, updatedParent] = await prisma.$transaction([
     prisma.message.create({
       data: {
         roomId,
@@ -176,7 +192,7 @@ export async function createReply(
     }),
   ]);
 
-  return toSafeMessage(reply);
+  return { reply: toSafeMessage(reply), parent: toSafeMessage(updatedParent) };
 }
 
 export async function getThreadReplies(
@@ -348,7 +364,13 @@ export async function editMessage(
   return toSafeMessage(updated);
 }
 
-export async function deleteMessage(messageId: string, userId: string): Promise<SafeMessage> {
+export type DeleteMessageResult = {
+  deleted: SafeMessage;
+  /** Present only when the deleted message was a reply — the caller should broadcast this too, same reasoning as CreateReplyResult.parent. */
+  updatedParent: SafeMessage | null;
+};
+
+export async function deleteMessage(messageId: string, userId: string): Promise<DeleteMessageResult> {
   const existing = await loadOwnedMessage(messageId, userId);
 
   const now = new Date();
@@ -357,7 +379,7 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
   // replies pay for a transaction — the much more common top-level delete
   // stays a single update, unchanged from before threads existed.
   if (existing.parentMessageId) {
-    const [deleted] = await prisma.$transaction([
+    const [deleted, updatedParent] = await prisma.$transaction([
       prisma.message.update({
         where: { id: messageId },
         data: { deletedAt: now },
@@ -367,7 +389,7 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
         data: { replyCount: { decrement: 1 } },
       }),
     ]);
-    return toSafeMessage(deleted);
+    return { deleted: toSafeMessage(deleted), updatedParent: toSafeMessage(updatedParent) };
   }
 
   const deleted = await prisma.message.update({
@@ -375,5 +397,5 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
     data: { deletedAt: now },
   });
 
-  return toSafeMessage(deleted);
+  return { deleted: toSafeMessage(deleted), updatedParent: null };
 }
