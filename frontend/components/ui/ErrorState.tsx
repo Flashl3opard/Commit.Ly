@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { RefreshCw, ArrowLeft, type LucideIcon } from "lucide-react";
-import { CommitlyCat } from "./CommitlyCat";
+import { CommitlyCatLottie } from "./CommitlyCatLottie";
 
 export type ErrorStateAction = {
   label: string;
@@ -17,7 +17,7 @@ type ErrorStateProps = {
   actions?: ErrorStateAction[];
   /** Fills the parent (flex-1, centered) — the default for a full-pane state. Set false for a compact inline usage (e.g. inside a smaller panel). */
   fill?: boolean;
-  /** Overrides the default static CommitlyCat mark — reserved for 404 (CommitlyCatLottie), which is the one state that earns a bit of animated personality. Every other state stays the calmer static icon. */
+  /** Overrides the default animated CommitlyCatLottie mark, if some future state needs a different treatment. */
   icon?: ReactNode;
 };
 
@@ -38,7 +38,7 @@ export function ErrorState({ title, description, onRetry, onBack, actions, fill 
 
   return (
     <div className={`flex flex-col items-center justify-center px-6 text-center ${fill ? "flex-1" : "py-10"}`}>
-      {icon ?? <CommitlyCat className="h-11 w-11 opacity-70 grayscale" />}
+      {icon ?? <CommitlyCatLottie className="h-24 w-24" />}
       <h1 className="mt-4 text-base font-semibold text-foreground">{title}</h1>
       {description && <p className="mt-1.5 max-w-sm text-sm text-muted">{description}</p>}
       {allActions.length > 0 && (
