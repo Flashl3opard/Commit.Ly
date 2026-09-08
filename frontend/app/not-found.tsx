@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { CommitlyCatLottie } from "@/components/ui/CommitlyCatLottie";
 
 export default function NotFound() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function NotFound() {
         title="404 — This branch doesn't exist."
         description="The page you're looking for was moved, renamed, or never existed."
         onBack={() => router.back()}
+        icon={<CommitlyCatLottie className="h-36 w-36" />}
       />
     </div>
   );
