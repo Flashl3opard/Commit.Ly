@@ -24,7 +24,6 @@ export function IssueActivityCard({ message, railPosition }: { message: Message;
       linkHref={url}
       linkLabel="View issue"
       railPosition={railPosition}
-      emphasisMarker={isClosed}
     />
   );
 }

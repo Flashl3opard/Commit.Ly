@@ -302,6 +302,20 @@ describe("GET /rooms/:roomId/messages", () => {
     expect(mockMessageFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 11 }));
   });
 
+  it("excludes replies (parentMessageId set) from room history — they only ever appear in their thread's own reply list", async () => {
+    mockGetRoomMembership.mockResolvedValue({ role: "MEMBER", joinedAt: "2026-01-01T00:00:00.000Z" });
+    mockMessageFindMany.mockResolvedValue([]);
+    const token = signToken("user-1");
+
+    await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+
+    expect(mockMessageFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ parentMessageId: null }),
+      }),
+    );
+  });
+
   it("enforces the maximum limit of 100", async () => {
     const token = signToken("user-1");
     const res = await request(app)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, ExternalLink, FolderGit2, Loader2, Lock, Globe } from "lucide-react";
+import { Check, ExternalLink, FolderGit2, Loader2, Lock, Globe, Settings2 } from "lucide-react";
 import {
   getGithubAppStatus,
   getGithubAppRepositories,
@@ -83,16 +83,25 @@ export function GithubAppSection() {
               </span>
               <span className="text-sm text-muted">on {status.installation.accountLogin}</span>
             </div>
-            {!showRepositories && (
-              <button
-                type="button"
-                onClick={handleViewRepositories}
-                className="focus-ring mt-3 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {!showRepositories && (
+                <button
+                  type="button"
+                  onClick={handleViewRepositories}
+                  className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+                >
+                  <FolderGit2 className="h-4 w-4" aria-hidden="true" />
+                  View repositories
+                </button>
+              )}
+              <a
+                href={installGithubAppUrl()}
+                className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
               >
-                <FolderGit2 className="h-4 w-4" aria-hidden="true" />
-                View repositories
-              </button>
-            )}
+                <Settings2 className="h-4 w-4" aria-hidden="true" />
+                Add or remove repositories
+              </a>
+            </div>
           </div>
         ) : (
           <div>

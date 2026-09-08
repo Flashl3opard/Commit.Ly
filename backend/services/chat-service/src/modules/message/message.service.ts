@@ -298,10 +298,13 @@ export async function getMessageHistory(
   }
 
   // Fetch limit+1 so we can tell whether there is a next page without a
-  // separate count query.
+  // separate count query. parentMessageId: null excludes replies — they
+  // belong only to their thread's own reply list (GET .../replies), never
+  // the main room history, regardless of how far back pagination goes.
   const records: MessageRecord[] = await prisma.message.findMany({
     where: {
       roomId,
+      parentMessageId: null,
       ...(beforeSequence !== undefined ? { sequence: { lt: beforeSequence } } : {}),
     },
     orderBy: { sequence: "desc" },

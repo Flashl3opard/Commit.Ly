@@ -96,10 +96,19 @@ function reducer(state: InternalState, action: Action): InternalState {
     case "reset":
       return initialState(action.roomId);
     case "historyLoaded":
-      return { ...state, messages: action.messages, hasMoreOlder: action.nextCursor !== null, loadingInitial: false };
+      return {
+        ...state,
+        messages: action.messages.filter((m) => !m.parentMessageId),
+        hasMoreOlder: action.nextCursor !== null,
+        loadingInitial: false,
+      };
     case "olderHistoryLoaded": {
       const existingIds = new Set(state.messages.map((m) => m.id));
-      const newOnes = action.messages.filter((m) => !existingIds.has(m.id));
+      // Defense in depth: replies should already be excluded server-side
+      // (getMessageHistory filters parentMessageId: null), but the main
+      // stream must never render one regardless of which layer would
+      // otherwise let it through.
+      const newOnes = action.messages.filter((m) => !existingIds.has(m.id) && !m.parentMessageId);
       return { ...state, messages: [...newOnes, ...state.messages], hasMoreOlder: action.nextCursor !== null };
     }
     case "loadError":
