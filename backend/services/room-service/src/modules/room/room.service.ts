@@ -99,6 +99,22 @@ export async function createRoom(userId: string, input: CreateRoomInput): Promis
         data: { roomId: created.id, userId, role: RoomRole.OWNER },
       });
 
+      // Every room starts with the same sane default configuration:
+      // a mandatory #general channel and the three initial modules. This
+      // is the same shape the add_channels_and_modules migration backfilled
+      // onto every pre-existing room, so new and old rooms never diverge.
+      await tx.channel.create({
+        data: { roomId: created.id, name: "general", isDefault: true, position: 0, createdBy: userId },
+      });
+
+      await tx.roomModule.createMany({
+        data: [
+          { roomId: created.id, type: "CHAT", name: "Chat", position: 0, createdBy: userId },
+          { roomId: created.id, type: "GITHUB_ACTIVITY", name: "GitHub Activity", position: 1, createdBy: userId },
+          { roomId: created.id, type: "MEMBERS", name: "Members", position: 2, createdBy: userId },
+        ],
+      });
+
       return created;
     });
 
@@ -252,6 +268,32 @@ export async function leaveRoom(userId: string, roomId: string): Promise<void> {
   await prisma.roomMember.delete({
     where: { roomId_userId: { roomId, userId } },
   });
+}
+
+/**
+ * Shared authorization gate for every owner-only room-structure action
+ * (channel create/rename/archive, module add/remove/reorder). Checks
+ * RoomMember.role, not Room.ownerUserId — the same field every other
+ * service sees via the internal membership endpoint, so "OWNER" means the
+ * identical thing everywhere in the system. Room.ownerUserId remains the
+ * authority for delete-room specifically (pre-existing behavior, left
+ * unchanged); the two fields are always written together at room creation
+ * and there is still no path that could desync them.
+ */
+export async function assertRoomOwner(userId: string, roomId: string): Promise<void> {
+  const membership = await prisma.roomMember.findUnique({
+    where: { roomId_userId: { roomId, userId } },
+  });
+
+  if (!membership) {
+    // Same non-disclosure shape as getRoomDetails — a non-member can't
+    // distinguish "room doesn't exist" from "you're not in it."
+    throw new RoomServiceError("Room not found.", 404);
+  }
+
+  if (membership.role !== RoomRole.OWNER) {
+    throw new RoomServiceError("Only the room owner can do this.", 403);
+  }
 }
 
 export async function deleteRoom(userId: string, roomId: string): Promise<void> {

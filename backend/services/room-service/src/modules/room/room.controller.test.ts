@@ -40,6 +40,8 @@ const mockMemberFindMany = vi.fn();
 const mockMemberCreate = vi.fn();
 const mockMemberDelete = vi.fn();
 const mockMemberDeleteMany = vi.fn();
+const mockChannelCreate = vi.fn();
+const mockRoomModuleCreateMany = vi.fn();
 
 vi.mock("../../config/prisma", () => ({
   prisma: {
@@ -61,6 +63,8 @@ vi.mock("../../config/prisma", () => ({
         const tx = {
           room: { create: (...args: unknown[]) => mockRoomCreate(...args) },
           roomMember: { create: (...args: unknown[]) => mockMemberCreate(...args) },
+          channel: { create: (...args: unknown[]) => mockChannelCreate(...args) },
+          roomModule: { createMany: (...args: unknown[]) => mockRoomModuleCreateMany(...args) },
         };
         return arg(tx);
       }
@@ -151,6 +155,46 @@ describe("Room Service routes", () => {
       const memberCreateCall = mockMemberCreate.mock.calls[0][0];
       expect(memberCreateCall.data.role).toBe("OWNER");
       expect(memberCreateCall.data.userId).toBe("user-42");
+    });
+
+    it("seeds the mandatory #general channel and the three default modules (Chat, GitHub Activity, Members)", async () => {
+      mockGetRepositoryById.mockResolvedValue(REPO_INFO);
+      mockRoomFindUnique.mockResolvedValue(null);
+      mockRoomCreate.mockImplementation(async (args: { data: Record<string, unknown> }) => ({
+        id: "room-uuid-1",
+        name: args.data.name,
+        roomCode: args.data.roomCode,
+        passwordHash: args.data.passwordHash,
+        ownerUserId: args.data.ownerUserId,
+        githubRepositoryId: args.data.githubRepositoryId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+      mockMemberCreate.mockResolvedValue({});
+      mockChannelCreate.mockResolvedValue({});
+      mockRoomModuleCreateMany.mockResolvedValue({ count: 3 });
+
+      const token = signToken("user-42");
+      const res = await request(app)
+        .post("/rooms")
+        .set("Cookie", [`token=${token}`])
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+
+      expect(res.status).toBe(201);
+
+      const channelCreateCall = mockChannelCreate.mock.calls[0][0];
+      expect(channelCreateCall.data).toMatchObject({
+        roomId: "room-uuid-1",
+        name: "general",
+        isDefault: true,
+        position: 0,
+        createdBy: "user-42",
+      });
+
+      const moduleCreateManyCall = mockRoomModuleCreateMany.mock.calls[0][0];
+      const moduleTypes = moduleCreateManyCall.data.map((m: { type: string }) => m.type);
+      expect(moduleTypes).toEqual(["CHAT", "GITHUB_ACTIVITY", "MEMBERS"]);
+      expect(moduleCreateManyCall.data.every((m: { roomId: string }) => m.roomId === "room-uuid-1")).toBe(true);
     });
 
     it("returns 404 when the repository does not exist", async () => {

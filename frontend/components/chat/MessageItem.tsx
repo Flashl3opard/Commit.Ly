@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Check, X, Loader2, Copy, Smile, Reply, MessageSquare } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RoomOwnerMark } from "@/components/ui/RoomOwnerMark";
 import { GithubActivityCard } from "./activity/GithubActivityCard";
 import { renderMessageContent } from "./mentionRendering";
 import type { Message } from "@/lib/api/chat";
@@ -107,7 +108,10 @@ export function MessageItem({
       <div className="min-w-0 flex-1">
         {!isGroupedWithPrevious && (
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-foreground">{senderName}</span>
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+              {senderName}
+              {sender?.role === "OWNER" && <RoomOwnerMark />}
+            </span>
             <span className="text-xs text-muted-2">{formatTimestamp(message.createdAt)}</span>
           </div>
         )}

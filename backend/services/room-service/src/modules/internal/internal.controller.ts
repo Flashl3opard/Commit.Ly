@@ -73,6 +73,62 @@ export async function resolveMentionedMembers(
 }
 
 /**
+ * Confirms a channelId genuinely belongs to the given roomId, and isn't
+ * archived — the check Chat Service needs before accepting a message send
+ * targeting that channel. Never trusts a client-supplied channelId/roomId
+ * pairing without this round trip, same reasoning as getMembership above.
+ */
+export type InternalChannelInfo = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
+export async function getChannel(req: Request<{ roomId: string; channelId: string }>, res: Response) {
+  const { roomId, channelId } = req.params;
+
+  const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+
+  if (!channel || channel.roomId !== roomId || channel.archivedAt) {
+    return res.status(404).json({ error: "Channel not found." });
+  }
+
+  const info: InternalChannelInfo = {
+    id: channel.id,
+    name: channel.name,
+    isDefault: channel.isDefault,
+  };
+
+  return res.status(200).json({ channel: info });
+}
+
+/**
+ * The room's mandatory "general" channel — every room has exactly one.
+ * Used by GitHub Service (via Chat Service) to route GitHub activity
+ * system messages, which have no channel concept of their own: a push/PR/
+ * issue event isn't "in" any particular channel a human picked, so it
+ * always lands in general, the same place it would have appeared before
+ * channels existed.
+ */
+export async function getDefaultChannel(req: Request<{ roomId: string }>, res: Response) {
+  const { roomId } = req.params;
+
+  const channel = await prisma.channel.findFirst({ where: { roomId, isDefault: true } });
+
+  if (!channel) {
+    return res.status(404).json({ error: "Room not found." });
+  }
+
+  const info: InternalChannelInfo = {
+    id: channel.id,
+    name: channel.name,
+    isDefault: channel.isDefault,
+  };
+
+  return res.status(200).json({ channel: info });
+}
+
+/**
  * Minimum information GitHub Service needs to route a webhook event to a
  * room — never the room name, password hash, or member list. Room.
  * githubRepositoryId is the current schema's unique constraint, so at most

@@ -2,7 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { roomMessagesRouter } from "./modules/message/message.routes";
+import { channelMessagesRouter, roomMessagesRouter } from "./modules/message/message.routes";
 import { messageByIdRouter } from "./modules/message/messageById.routes";
 import systemMessageRoutes from "./modules/message/systemMessage.routes";
 
@@ -18,6 +18,7 @@ app.use(
 );
 
 app.use("/internal", systemMessageRoutes);
+app.use("/rooms/:roomId/channels/:channelId/messages", channelMessagesRouter);
 app.use("/rooms/:roomId/messages", roomMessagesRouter);
 app.use("/messages/:messageId", messageByIdRouter);
 

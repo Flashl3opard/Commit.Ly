@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react";
 import { getMessageHistory, type Message } from "@/lib/api/chat";
 import { ApiError } from "@/lib/api/types";
 import { getChatSocket } from "./chatSocketInstance";
@@ -57,10 +57,10 @@ function upsertMessage(messages: Message[], incoming: Message): Message[] {
   return next;
 }
 
-type InternalState = ChatRoomState & { roomId: string | null };
+type InternalState = ChatRoomState & { roomId: string | null; channelId: string | null };
 
 type Action =
-  | { kind: "reset"; roomId: string | null }
+  | { kind: "reset"; roomId: string | null; channelId: string | null }
   | { kind: "historyLoaded"; messages: Message[]; nextCursor: string | null }
   | { kind: "olderHistoryLoaded"; messages: Message[]; nextCursor: string | null }
   | { kind: "loadError"; message: string }
@@ -75,9 +75,10 @@ type Action =
   | { kind: "scrollPosition"; isNearBottom: boolean }
   | { kind: "presenceToastShown"; userId: string };
 
-function initialState(roomId: string | null): InternalState {
+function initialState(roomId: string | null, channelId: string | null): InternalState {
   return {
     roomId,
+    channelId,
     messages: [],
     loadingInitial: true,
     loadingOlder: false,
@@ -94,7 +95,7 @@ function initialState(roomId: string | null): InternalState {
 function reducer(state: InternalState, action: Action): InternalState {
   switch (action.kind) {
     case "reset":
-      return initialState(action.roomId);
+      return initialState(action.roomId, action.channelId);
     case "historyLoaded":
       return {
         ...state,
@@ -167,27 +168,55 @@ function reducer(state: InternalState, action: Action): InternalState {
  * react-hooks/set-state-in-effect) and the exact bug shape that caused a
  * previous unrelated login-redirect race in this codebase.
  */
-export function useChatRoom(roomId: string | null, currentUserId: string | null): ChatRoomState & ChatRoomActions {
-  const [state, dispatch] = useReducer(reducer, roomId, initialState);
+/**
+ * channelId scopes which messages are loaded/rendered; roomId still scopes
+ * the WebSocket connection itself (join/leave, presence, typing) — a
+ * channel switch resets messages/history/scroll state but does not
+ * rejoin the room or touch presence, since presence answers "who's in
+ * this room," not "who's viewing this channel." Message-lifecycle events
+ * are additionally filtered by channelId so switching channels doesn't
+ * render another channel's traffic before the history refetch lands.
+ */
+export function useChatRoom(
+  roomId: string | null,
+  channelId: string | null,
+  currentUserId: string | null,
+): ChatRoomState & ChatRoomActions {
+  const [state, dispatch] = useReducer(reducer, { roomId, channelId }, ({ roomId, channelId }) =>
+    initialState(roomId, channelId),
+  );
 
   const oldestCursorRef = useRef<string | null>(null);
   const isNearBottomRef = useRef(true);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const threadListenersRef = useRef(new Map<string, Set<(message: Message) => void>>());
+  // The room-join effect below only re-runs on roomId changes (switching
+  // channels must not tear down/rejoin the socket), so its message-event
+  // handler reads the current channel through this ref rather than
+  // closing over a channelId that would otherwise go stale the moment the
+  // user switches channels without the room also changing. Updated via
+  // useLayoutEffect (not during render) so it's current before any effect
+  // below could fire, matching the same ref-mirroring pattern Dialog.tsx
+  // already uses for onClose.
+  const channelIdRef = useRef(channelId);
+  useLayoutEffect(() => {
+    channelIdRef.current = channelId;
+  });
 
-  // Initial history load + room join/leave lifecycle.
+  // Channel-scoped history load + reset, independent of the room-scoped
+  // WS join/leave lifecycle below — switching channels within the same
+  // room must not tear down and rejoin the socket connection.
   useEffect(() => {
-    dispatch({ kind: "reset", roomId });
+    dispatch({ kind: "reset", roomId, channelId });
     oldestCursorRef.current = null;
     isNearBottomRef.current = true;
 
-    if (!roomId) return;
+    if (!roomId || !channelId) return;
 
-    const socket = getChatSocket();
     let cancelled = false;
 
-    getMessageHistory(roomId)
+    getMessageHistory(roomId, channelId)
       .then((page) => {
         if (cancelled) return;
         dispatch({ kind: "historyLoaded", messages: page.messages, nextCursor: page.nextCursor });
@@ -201,6 +230,18 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
         });
       });
 
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, channelId]);
+
+  // Room join/leave lifecycle + realtime subscriptions. Deliberately
+  // separate from the effect above — this only re-runs on roomId changes,
+  // not channelId ones.
+  useEffect(() => {
+    if (!roomId) return;
+
+    const socket = getChatSocket();
     socket.connect();
     socket.send({ type: "room.join", roomId });
 
@@ -225,14 +266,20 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
           break;
         case "message.created":
           if (event.message.roomId === roomId) {
+            // Thread listeners fire regardless of which channel is
+            // currently selected — a ThreadPanel stays subscribed to its
+            // own parentMessageId even if the user switches channels
+            // while it's open.
             if (event.message.parentMessageId) {
               threadListenersRef.current.get(event.message.parentMessageId)?.forEach((fn) => fn(event.message));
             }
-            dispatch({
-              kind: "messageUpserted",
-              message: event.message,
-              markUnseen: event.message.userId !== currentUserId && !isNearBottomRef.current,
-            });
+            if (event.message.channelId === channelIdRef.current) {
+              dispatch({
+                kind: "messageUpserted",
+                message: event.message,
+                markUnseen: event.message.userId !== currentUserId && !isNearBottomRef.current,
+              });
+            }
           }
           break;
         case "message.updated":
@@ -241,7 +288,9 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
             if (event.message.parentMessageId) {
               threadListenersRef.current.get(event.message.parentMessageId)?.forEach((fn) => fn(event.message));
             }
-            dispatch({ kind: "messageUpserted", message: event.message, markUnseen: false });
+            if (event.message.channelId === channelIdRef.current) {
+              dispatch({ kind: "messageUpserted", message: event.message, markUnseen: false });
+            }
           }
           break;
       }
@@ -250,7 +299,6 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     const unsubscribeState = socket.onStateChange((value) => dispatch({ kind: "connectionState", value }));
 
     return () => {
-      cancelled = true;
       unsubscribeMessages();
       unsubscribeState();
       socket.send({ type: "room.leave", roomId });
@@ -269,10 +317,10 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
   }, [roomId, state.connectionState]);
 
   const loadOlderMessages = useCallback(async () => {
-    if (!roomId || !oldestCursorRef.current || state.loadingOlder) return;
+    if (!roomId || !channelId || !oldestCursorRef.current || state.loadingOlder) return;
     dispatch({ kind: "loadingOlder", value: true });
     try {
-      const page = await getMessageHistory(roomId, { before: oldestCursorRef.current });
+      const page = await getMessageHistory(roomId, channelId, { before: oldestCursorRef.current });
       dispatch({ kind: "olderHistoryLoaded", messages: page.messages, nextCursor: page.nextCursor });
       oldestCursorRef.current = page.nextCursor;
     } catch (err) {
@@ -280,7 +328,7 @@ export function useChatRoom(roomId: string | null, currentUserId: string | null)
     } finally {
       dispatch({ kind: "loadingOlder", value: false });
     }
-  }, [roomId, state.loadingOlder]);
+  }, [roomId, channelId, state.loadingOlder]);
 
   const notifyScrollPosition = useCallback((isNearBottom: boolean) => {
     isNearBottomRef.current = isNearBottom;

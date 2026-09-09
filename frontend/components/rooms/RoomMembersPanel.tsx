@@ -1,5 +1,5 @@
-import { ShieldCheck } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { RoomOwnerMark } from "@/components/ui/RoomOwnerMark";
 import type { RoomMember } from "@/lib/api/rooms";
 
 type RoomMembersPanelProps = {
@@ -37,11 +37,7 @@ function MemberRow({ member, isOnline, showPresence }: { member: RoomMember; isO
           member.displayName && <p className="truncate text-xs text-muted-2">@{member.username}</p>
         )}
       </div>
-      {member.role === "OWNER" && (
-        <span title="Room owner" aria-label="Room owner" className="inline-flex shrink-0 items-center text-accent">
-          <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden="true" />
-        </span>
-      )}
+      {member.role === "OWNER" && <RoomOwnerMark />}
     </li>
   );
 }

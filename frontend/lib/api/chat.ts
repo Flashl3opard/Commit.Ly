@@ -15,6 +15,7 @@ export type SystemEventMetadata = {
 export type Message = {
   id: string;
   roomId: string;
+  channelId: string;
   userId: string | null;
   senderType: "user" | "system";
   systemEventType: string | null;
@@ -39,22 +40,26 @@ export type ListMessagesParams = {
   before?: string;
 };
 
-export function getMessageHistory(roomId: string, params?: ListMessagesParams): Promise<MessageHistoryPage> {
+export function getMessageHistory(
+  roomId: string,
+  channelId: string,
+  params?: ListMessagesParams,
+): Promise<MessageHistoryPage> {
   const query = new URLSearchParams();
   if (params?.limit !== undefined) query.set("limit", String(params.limit));
   if (params?.before) query.set("before", params.before);
   const queryString = query.toString();
 
   return chatRequest<MessageHistoryPage>(
-    `/rooms/${encodeURIComponent(roomId)}/messages${queryString ? `?${queryString}` : ""}`,
+    `/rooms/${encodeURIComponent(roomId)}/channels/${encodeURIComponent(channelId)}/messages${queryString ? `?${queryString}` : ""}`,
   );
 }
 
-export function sendMessage(roomId: string, content: string): Promise<{ message: Message }> {
-  return chatRequest<{ message: Message }>(`/rooms/${encodeURIComponent(roomId)}/messages`, {
-    method: "POST",
-    body: { content },
-  });
+export function sendMessage(roomId: string, channelId: string, content: string): Promise<{ message: Message }> {
+  return chatRequest<{ message: Message }>(
+    `/rooms/${encodeURIComponent(roomId)}/channels/${encodeURIComponent(channelId)}/messages`,
+    { method: "POST", body: { content } },
+  );
 }
 
 export function editMessage(messageId: string, content: string): Promise<{ message: Message }> {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 
@@ -8,6 +8,7 @@ process.env.INTERNAL_SERVICE_SECRET ??= "test-internal-secret";
 process.env.ROOM_SERVICE_URL ??= "http://localhost:4003";
 
 const mockGetRoomMembership = vi.fn();
+const mockGetChannel = vi.fn();
 vi.mock("../room/roomServiceClient", async () => {
   const actual = await vi.importActual<typeof import("../room/roomServiceClient.js")>(
     "../room/roomServiceClient.js",
@@ -15,6 +16,7 @@ vi.mock("../room/roomServiceClient", async () => {
   return {
     ...actual,
     getRoomMembership: (...args: unknown[]) => mockGetRoomMembership(...args),
+    getChannel: (...args: unknown[]) => mockGetChannel(...args),
   };
 });
 
@@ -42,6 +44,7 @@ function signToken(userId: string, expiresIn: string | number = "1h") {
 }
 
 const ROOM_ID = "11111111-1111-4111-8111-111111111111";
+const CHANNEL_ID = "99999999-9999-4999-8999-999999999999";
 
 describe("POST /rooms/:roomId/messages", () => {
   let app: ReturnType<typeof express>;
@@ -55,15 +58,22 @@ describe("POST /rooms/:roomId/messages", () => {
     vi.clearAllMocks();
   });
 
+  // Every test in this file targets a channel-scoped URL now, so a sane
+  // default channel resolution avoids repeating this in every single test
+  // — tests exercising the "channel not found" path override it directly.
+  beforeEach(() => {
+    mockGetChannel.mockResolvedValue({ id: CHANNEL_ID, name: "general", isDefault: true });
+  });
+
   it("returns 401 without a session cookie", async () => {
-    const res = await request(app).post(`/rooms/${ROOM_ID}/messages`).send({ content: "hi" });
+    const res = await request(app).post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).send({ content: "hi" });
     expect(res.status).toBe(401);
   });
 
   it("returns 401 for an expired token", async () => {
     const expired = signToken("user-1", -10);
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${expired}`])
       .send({ content: "hi" });
     expect(res.status).toBe(401);
@@ -72,7 +82,16 @@ describe("POST /rooms/:roomId/messages", () => {
   it("returns 400 for a malformed room id", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .post("/rooms/not-a-uuid/messages")
+      .post(`/rooms/not-a-uuid/channels/${CHANNEL_ID}/messages`)
+      .set("Cookie", [`token=${token}`])
+      .send({ content: "hi" });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for a malformed channel id", async () => {
+    const token = signToken("user-1");
+    const res = await request(app)
+      .post(`/rooms/${ROOM_ID}/channels/not-a-uuid/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "hi" });
     expect(res.status).toBe(400);
@@ -83,7 +102,7 @@ describe("POST /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "hi" });
 
@@ -98,6 +117,7 @@ describe("POST /rooms/:roomId/messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "msg-uuid-1",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: "user-1",
       content: "Hello team",
       createdAt: now,
@@ -108,7 +128,7 @@ describe("POST /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "Hello team" });
 
@@ -117,6 +137,7 @@ describe("POST /rooms/:roomId/messages", () => {
     expect(res.body.message).toEqual({
       id: "msg-uuid-1",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: "user-1",
       senderType: "user",
       systemEventType: null,
@@ -135,7 +156,7 @@ describe("POST /rooms/:roomId/messages", () => {
   it("rejects a blank message", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "" });
 
@@ -146,7 +167,7 @@ describe("POST /rooms/:roomId/messages", () => {
   it("rejects a whitespace-only message", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "     \n\t  " });
 
@@ -157,7 +178,7 @@ describe("POST /rooms/:roomId/messages", () => {
   it("rejects content over 4000 characters", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "a".repeat(4001) });
 
@@ -172,6 +193,7 @@ describe("POST /rooms/:roomId/messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "msg-uuid-2",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: "user-1",
       content,
       createdAt: now,
@@ -182,7 +204,7 @@ describe("POST /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content });
 
@@ -194,6 +216,7 @@ describe("POST /rooms/:roomId/messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "msg-uuid-3",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: "user-1",
       content: "hi",
       createdAt: new Date(),
@@ -204,7 +227,7 @@ describe("POST /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "hi", userId: "someone-else", createdAt: "2020-01-01T00:00:00.000Z" });
 
@@ -219,7 +242,7 @@ describe("POST /rooms/:roomId/messages", () => {
   it("rejects extra/unexpected fields in the request body", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .post(`/rooms/${ROOM_ID}/messages`)
+      .post(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`)
       .set("Cookie", [`token=${token}`])
       .send({ content: "hi", userId: "someone-else" });
 
@@ -233,6 +256,7 @@ function fakeMessage(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: `msg-${overrides.sequence ?? "1"}`,
     roomId: ROOM_ID,
+    channelId: CHANNEL_ID,
     userId: "user-1",
     content: `message ${overrides.sequence ?? "1"}`,
     sequence: BigInt((overrides.sequence as number) ?? 1),
@@ -256,8 +280,19 @@ describe("GET /rooms/:roomId/messages", () => {
     vi.clearAllMocks();
   });
 
+  beforeEach(() => {
+    mockGetChannel.mockResolvedValue({ id: CHANNEL_ID, name: "general", isDefault: true });
+  });
+
+  // Every test in this file targets a channel-scoped URL now, so a sane
+  // default channel resolution avoids repeating this in every single test
+  // — tests exercising the "channel not found" path override it directly.
+  beforeEach(() => {
+    mockGetChannel.mockResolvedValue({ id: CHANNEL_ID, name: "general", isDefault: true });
+  });
+
   it("returns 401 without a session cookie", async () => {
-    const res = await request(app).get(`/rooms/${ROOM_ID}/messages`);
+    const res = await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`);
     expect(res.status).toBe(401);
   });
 
@@ -265,7 +300,7 @@ describe("GET /rooms/:roomId/messages", () => {
     mockGetRoomMembership.mockResolvedValue(null);
     const token = signToken("user-1");
 
-    const res = await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+    const res = await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).set("Cookie", [`token=${token}`]);
 
     expect(res.status).toBe(403);
   });
@@ -276,7 +311,7 @@ describe("GET /rooms/:roomId/messages", () => {
     mockMessageFindMany.mockResolvedValue([fakeMessage({ sequence: 3 }), fakeMessage({ sequence: 2 }), fakeMessage({ sequence: 1 })]);
     const token = signToken("user-1");
 
-    const res = await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+    const res = await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).set("Cookie", [`token=${token}`]);
 
     expect(res.status).toBe(200);
     expect(res.body.messages.map((m: { id: string }) => m.id)).toEqual(["msg-1", "msg-2", "msg-3"]);
@@ -287,7 +322,7 @@ describe("GET /rooms/:roomId/messages", () => {
     mockMessageFindMany.mockResolvedValue([]);
     const token = signToken("user-1");
 
-    await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+    await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).set("Cookie", [`token=${token}`]);
 
     expect(mockMessageFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 51 }));
   });
@@ -297,7 +332,7 @@ describe("GET /rooms/:roomId/messages", () => {
     mockMessageFindMany.mockResolvedValue([]);
     const token = signToken("user-1");
 
-    await request(app).get(`/rooms/${ROOM_ID}/messages?limit=10`).set("Cookie", [`token=${token}`]);
+    await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?limit=10`).set("Cookie", [`token=${token}`]);
 
     expect(mockMessageFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 11 }));
   });
@@ -307,7 +342,7 @@ describe("GET /rooms/:roomId/messages", () => {
     mockMessageFindMany.mockResolvedValue([]);
     const token = signToken("user-1");
 
-    await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+    await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).set("Cookie", [`token=${token}`]);
 
     expect(mockMessageFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -319,7 +354,7 @@ describe("GET /rooms/:roomId/messages", () => {
   it("enforces the maximum limit of 100", async () => {
     const token = signToken("user-1");
     const res = await request(app)
-      .get(`/rooms/${ROOM_ID}/messages?limit=500`)
+      .get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?limit=500`)
       .set("Cookie", [`token=${token}`]);
 
     expect(res.status).toBe(400);
@@ -336,7 +371,7 @@ describe("GET /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .get(`/rooms/${ROOM_ID}/messages?limit=2`)
+      .get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?limit=2`)
       .set("Cookie", [`token=${token}`]);
 
     expect(res.body.messages).toHaveLength(2);
@@ -349,7 +384,7 @@ describe("GET /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .get(`/rooms/${ROOM_ID}/messages?limit=50`)
+      .get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?limit=50`)
       .set("Cookie", [`token=${token}`]);
 
     expect(res.body.nextCursor).toBeNull();
@@ -362,7 +397,7 @@ describe("GET /rooms/:roomId/messages", () => {
     const cursor = encodeCursor(5n);
 
     await request(app)
-      .get(`/rooms/${ROOM_ID}/messages?before=${cursor}`)
+      .get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?before=${cursor}`)
       .set("Cookie", [`token=${token}`]);
 
     expect(mockMessageFindMany).toHaveBeenCalledWith(
@@ -377,7 +412,7 @@ describe("GET /rooms/:roomId/messages", () => {
     const token = signToken("user-1");
 
     const res = await request(app)
-      .get(`/rooms/${ROOM_ID}/messages?before=not-a-valid-cursor!!!`)
+      .get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages?before=not-a-valid-cursor!!!`)
       .set("Cookie", [`token=${token}`]);
 
     expect(res.status).toBe(400);
@@ -390,7 +425,7 @@ describe("GET /rooms/:roomId/messages", () => {
     ]);
     const token = signToken("user-1");
 
-    const res = await request(app).get(`/rooms/${ROOM_ID}/messages`).set("Cookie", [`token=${token}`]);
+    const res = await request(app).get(`/rooms/${ROOM_ID}/channels/${CHANNEL_ID}/messages`).set("Cookie", [`token=${token}`]);
 
     expect(res.body.messages[0].content).toBeNull();
     expect(res.body.messages[0].deletedAt).not.toBeNull();

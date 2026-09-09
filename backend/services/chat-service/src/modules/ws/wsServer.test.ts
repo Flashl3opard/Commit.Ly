@@ -488,6 +488,7 @@ describe("REST -> WebSocket message broadcast", () => {
     const wireMessage = {
       id: "msg-1",
       roomId: ROOM_A,
+      channelId: "channel-1",
       userId: USER_1,
       senderType: "user" as const,
       systemEventType: null,
@@ -521,6 +522,7 @@ describe("REST -> WebSocket message broadcast", () => {
     const wireMessage = {
       id: "msg-2",
       roomId: ROOM_A,
+      channelId: "channel-1",
       userId: USER_1,
       senderType: "user" as const,
       systemEventType: null,

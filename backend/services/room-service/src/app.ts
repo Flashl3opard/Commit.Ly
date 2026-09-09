@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import roomRoutes from "./modules/room/room.routes";
+import channelRoutes from "./modules/channel/channel.routes";
+import roomModuleRoutes from "./modules/roomModule/roomModule.routes";
 import internalRoutes from "./modules/internal/internal.routes";
 
 const app = express();
@@ -17,6 +19,8 @@ app.use(
 );
 
 app.use("/rooms", roomRoutes);
+app.use("/rooms/:roomId/channels", channelRoutes);
+app.use("/rooms/:roomId/modules", roomModuleRoutes);
 app.use("/internal", internalRoutes);
 
 app.get("/health", (_req, res) => {

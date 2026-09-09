@@ -15,6 +15,19 @@ function validateRoomIdParam(req: Request, res: Response, next: NextFunction) {
   return next();
 }
 
+const roomAndChannelIdParamsSchema = z.object({
+  roomId: z.string().uuid(),
+  channelId: z.string().uuid(),
+});
+
+function validateRoomAndChannelIdParams(req: Request, res: Response, next: NextFunction) {
+  const parsed = roomAndChannelIdParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid room id or channel id." });
+  }
+  return next();
+}
+
 const roomAndMessageIdParamsSchema = z.object({
   roomId: z.string().uuid(),
   messageId: z.string().uuid(),
@@ -28,12 +41,21 @@ function validateRoomAndMessageIdParams(req: Request, res: Response, next: NextF
   return next();
 }
 
-// Mounted at /rooms/:roomId/messages
+// Mounted at /rooms/:roomId/channels/:channelId/messages — a message
+// always belongs to a specific channel now, so sending/listing requires
+// naming one. Threads keep addressing by roomId + messageId only (no
+// channelId segment): a reply's channel is implicit from its parent
+// message, resolved server-side in message.service.ts, never supplied by
+// the client — see createReply's channelId: parent.channelId.
+const channelMessagesRouter = Router({ mergeParams: true });
+channelMessagesRouter.post("/", authMiddleware, validateRoomAndChannelIdParams, create);
+channelMessagesRouter.get("/", authMiddleware, validateRoomAndChannelIdParams, history);
+
+// Mounted at /rooms/:roomId/messages — search spans every channel in the
+// room (unchanged), and thread endpoints are addressed by messageId alone.
 const roomMessagesRouter = Router({ mergeParams: true });
-roomMessagesRouter.post("/", authMiddleware, validateRoomIdParam, create);
 roomMessagesRouter.get("/search", authMiddleware, validateRoomIdParam, search);
-roomMessagesRouter.get("/", authMiddleware, validateRoomIdParam, history);
 roomMessagesRouter.post("/:messageId/replies", authMiddleware, validateRoomAndMessageIdParams, createThreadReply);
 roomMessagesRouter.get("/:messageId/replies", authMiddleware, validateRoomAndMessageIdParams, listThreadReplies);
 
-export { roomMessagesRouter };
+export { channelMessagesRouter, roomMessagesRouter };

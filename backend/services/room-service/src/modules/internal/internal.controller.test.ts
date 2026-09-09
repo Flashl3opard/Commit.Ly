@@ -11,6 +11,7 @@ process.env.GITHUB_SERVICE_URL ??= "http://localhost:4002";
 const mockMemberFindUnique = vi.fn();
 const mockMemberFindMany = vi.fn();
 const mockRoomFindFirst = vi.fn();
+const mockChannelFindUnique = vi.fn();
 
 vi.mock("../../config/prisma", () => ({
   prisma: {
@@ -20,6 +21,9 @@ vi.mock("../../config/prisma", () => ({
     },
     room: {
       findFirst: (...args: unknown[]) => mockRoomFindFirst(...args),
+    },
+    channel: {
+      findUnique: (...args: unknown[]) => mockChannelFindUnique(...args),
     },
   },
 }));
@@ -291,5 +295,90 @@ describe("POST /internal/rooms/:roomId/members/resolve", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ members: [] });
+  });
+});
+
+describe("GET /internal/rooms/:roomId/channels/:channelId", () => {
+  let app: ReturnType<typeof express>;
+  const CHANNEL_ID = "33333333-3333-4333-8333-333333333333";
+
+  beforeAll(async () => {
+    const appModule = (await import("../../app.js")) as unknown as { default: ReturnType<typeof express> };
+    app = appModule.default;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 without the internal service secret header", async () => {
+    const res = await request(app).get(`/internal/rooms/${ROOM_ID}/channels/${CHANNEL_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for a malformed roomId/channelId", async () => {
+    const res = await request(app)
+      .get("/internal/rooms/not-a-uuid/channels/also-not-a-uuid")
+      .set("x-internal-service-secret", "test-internal-secret");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when the channel does not exist", async () => {
+    mockChannelFindUnique.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/internal/rooms/${ROOM_ID}/channels/${CHANNEL_ID}`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when the channel belongs to a different room", async () => {
+    mockChannelFindUnique.mockResolvedValue({
+      id: CHANNEL_ID,
+      roomId: "44444444-4444-4444-8444-444444444444",
+      name: "general",
+      isDefault: true,
+      archivedAt: null,
+    });
+
+    const res = await request(app)
+      .get(`/internal/rooms/${ROOM_ID}/channels/${CHANNEL_ID}`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when the channel is archived", async () => {
+    mockChannelFindUnique.mockResolvedValue({
+      id: CHANNEL_ID,
+      roomId: ROOM_ID,
+      name: "old-project",
+      isDefault: false,
+      archivedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+
+    const res = await request(app)
+      .get(`/internal/rooms/${ROOM_ID}/channels/${CHANNEL_ID}`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns the channel's id, name, and isDefault for a valid, non-archived channel in this room", async () => {
+    mockChannelFindUnique.mockResolvedValue({
+      id: CHANNEL_ID,
+      roomId: ROOM_ID,
+      name: "general",
+      isDefault: true,
+      archivedAt: null,
+    });
+
+    const res = await request(app)
+      .get(`/internal/rooms/${ROOM_ID}/channels/${CHANNEL_ID}`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ channel: { id: CHANNEL_ID, name: "general", isDefault: true } });
   });
 });

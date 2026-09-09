@@ -18,7 +18,7 @@ function handleServiceError(err: unknown, res: Response) {
   throw err;
 }
 
-export async function create(req: Request<{ roomId: string }>, res: Response) {
+export async function create(req: Request<{ roomId: string; channelId: string }>, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Authentication required." });
 
@@ -28,7 +28,7 @@ export async function create(req: Request<{ roomId: string }>, res: Response) {
   }
 
   try {
-    const message = await createMessage(req.params.roomId, userId, parsed.data);
+    const message = await createMessage(req.params.roomId, req.params.channelId, userId, parsed.data);
     broadcastMessageEvent(message.roomId, "message.created", message);
     return res.status(201).json({ message });
   } catch (err) {
@@ -69,7 +69,7 @@ export async function listThreadReplies(req: Request<{ roomId: string; messageId
   }
 }
 
-export async function history(req: Request<{ roomId: string }>, res: Response) {
+export async function history(req: Request<{ roomId: string; channelId: string }>, res: Response) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Authentication required." });
 
@@ -79,7 +79,7 @@ export async function history(req: Request<{ roomId: string }>, res: Response) {
   }
 
   try {
-    const page = await getMessageHistory(req.params.roomId, userId, parsed.data);
+    const page = await getMessageHistory(req.params.roomId, req.params.channelId, userId, parsed.data);
     return res.status(200).json(page);
   } catch (err) {
     return handleServiceError(err, res);

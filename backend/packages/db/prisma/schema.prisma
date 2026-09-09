@@ -103,7 +103,9 @@ model Room {
   githubRepositoryId String           @unique
   githubRepository   GithubRepository @relation(fields: [githubRepositoryId], references: [id], onDelete: Restrict)
 
-  members RoomMember[]
+  members  RoomMember[]
+  channels Channel[]
+  modules  RoomModule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -122,6 +124,67 @@ model RoomMember {
   @@unique([roomId, userId])
 }
 
+// A room's chat is split into named channels, e.g. #general, #frontend.
+// Every room gets exactly one isDefault channel ("general") created
+// alongside the room itself — it can never be renamed away from a valid
+// name, archived, or deleted, so a room can never end up with zero usable
+// channels. createdBy is the user who created it (always the owner for
+// non-default channels, enforced at the service layer, not the schema —
+// mirrors how ownership authorization elsewhere in this codebase is a
+// service-level check, not a DB constraint).
+model Channel {
+  id          String    @id @default(uuid())
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  icon        String?
+  position    Int       @default(0)
+  isDefault   Boolean   @default(false)
+  archivedAt  DateTime?
+  createdBy   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, name])
+  @@index([roomId, position])
+}
+
+enum RoomModuleType {
+  CHAT
+  GITHUB_ACTIVITY
+  MEMBERS
+  TASKS
+  NOTES
+  RELEASES
+}
+
+// What exists inside a room, owner-configurable. One row per (roomId, type)
+// — a room can't have two "Tasks" modules today, which matches every
+// module type in this initial set being a singleton concept per room.
+// config is small, structured, module-specific display/behavior data
+// (e.g. a future Tasks module's default view) — never secrets, never raw
+// external payloads, same discipline as Message.metadata elsewhere in
+// this schema.
+model RoomModule {
+  id        String         @id @default(uuid())
+  roomId    String
+  room      Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  type      RoomModuleType
+  name      String
+  position  Int            @default(0)
+  enabled   Boolean        @default(true)
+  config    Json?
+  createdBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, type])
+  @@index([roomId, position])
+}
+
 // Owned by Chat Service. roomId/userId are deliberately plain fields, not
 // Prisma relations — Room and User are owned by Room Service/User Service
 // respectively, and Chat Service treats them as external identifiers
@@ -136,6 +199,15 @@ enum MessageSenderType {
 model Message {
   id     String @id @default(uuid())
   roomId String
+
+  // Same cross-service-safety reasoning as roomId/userId above — Channel
+  // is owned by Room Service, so this is a plain field verified over HTTP
+  // (Room Service's internal channel-lookup endpoint), never a Prisma FK.
+  // Required on every row; the migration that introduced this column
+  // backfilled every pre-existing message into its room's "general"
+  // channel before making it NOT NULL, so no historical row was ever left
+  // without one.
+  channelId String
 
   // Null only for SYSTEM messages (e.g. GitHub activity) — there is no
   // Commit.ly user to attribute those to, and GitHub actors are never
@@ -194,5 +266,6 @@ model Message {
 
   @@index([roomId, createdAt])
   @@index([roomId, sequence])
+  @@index([channelId, sequence])
   @@index([parentMessageId])
 }

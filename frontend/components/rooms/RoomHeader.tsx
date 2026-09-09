@@ -21,9 +21,9 @@ export function RoomHeader({ room, onOpenSettings, onToggleMembers, onOpenSearch
           <button
             type="button"
             onClick={openMobileSidebar}
-            title="Open rooms"
-            aria-label="Open rooms"
-            className="focus-ring shrink-0 rounded-lg p-1.5 text-muted-2 hover:bg-background-3 hover:text-foreground md:hidden"
+            title="Open navigation"
+            aria-label="Open navigation"
+            className="focus-ring shrink-0 rounded-lg p-1.5 text-muted-2 hover:bg-background-3 hover:text-foreground sm:hidden"
           >
             <Menu className="h-4 w-4" aria-hidden="true" />
           </button>

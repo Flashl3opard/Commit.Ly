@@ -43,6 +43,70 @@ export async function getRoomMembership(roomId: string, userId: string): Promise
   return (data as { membership: RoomMembership }).membership;
 }
 
+export type RoomChannel = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
+/**
+ * Confirms a channelId genuinely belongs to roomId and isn't archived, via
+ * Room Service's internal API — the same "never trust the client-supplied
+ * pairing" discipline as getRoomMembership. Returns null if the channel
+ * doesn't exist, belongs to a different room, or is archived; callers
+ * decide whether that means 403/404.
+ */
+export async function getChannel(roomId: string, channelId: string): Promise<RoomChannel | null> {
+  const response = await fetch(
+    `${internalConfig.roomServiceUrl}/internal/rooms/${encodeURIComponent(roomId)}/channels/${encodeURIComponent(channelId)}`,
+    {
+      headers: { "x-internal-service-secret": internalConfig.serviceSecret },
+    },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message = (data as { error?: string } | null)?.error ?? "Room Service request failed";
+    throw new RoomServiceClientError(message, response.status);
+  }
+
+  return (data as { channel: RoomChannel }).channel;
+}
+
+/**
+ * The room's mandatory "general" channel — used to route GitHub activity
+ * system messages, which have no channel of their own to target (see
+ * message.service.ts's createSystemMessage for the full reasoning).
+ */
+export async function getDefaultChannel(roomId: string): Promise<RoomChannel | null> {
+  const response = await fetch(
+    `${internalConfig.roomServiceUrl}/internal/rooms/${encodeURIComponent(roomId)}/channels/default`,
+    {
+      headers: { "x-internal-service-secret": internalConfig.serviceSecret },
+    },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message = (data as { error?: string } | null)?.error ?? "Room Service request failed";
+    throw new RoomServiceClientError(message, response.status);
+  }
+
+  return (data as { channel: RoomChannel }).channel;
+}
+
 export type ResolvedMentionMember = {
   userId: string;
   username: string;

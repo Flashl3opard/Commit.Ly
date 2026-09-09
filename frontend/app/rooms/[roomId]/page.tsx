@@ -3,16 +3,23 @@
 import { useEffect, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { getRoom, type RoomDetails } from "@/lib/api/rooms";
+import { getRoom, type RoomDetails, type RoomModuleType } from "@/lib/api/rooms";
 import { ApiError } from "@/lib/api/types";
 import { errorStateCopyFor, type ErrorStateCopy } from "@/lib/api/errorState";
 import { RoomHeader } from "@/components/rooms/RoomHeader";
 import { RoomSettingsDialog } from "@/components/rooms/RoomSettingsDialog";
+import { CustomizeRoomDialog } from "@/components/rooms/CustomizeRoomDialog";
+import { ContextualSubSidebar } from "@/components/rooms/ContextualSubSidebar";
 import { RoomChat } from "@/components/chat/RoomChat";
+import { RoomMembersPanel } from "@/components/rooms/RoomMembersPanel";
+import { ModulePlaceholder } from "@/components/rooms/ModulePlaceholder";
 import { useCommandPalette } from "@/components/search/useCommandPalette";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useLastVisitedRoom } from "@/lib/rooms/useLastVisitedRoom";
+import { RoomModulesProvider, useRoomModules } from "@/lib/rooms/RoomModulesContext";
+import { ActiveModuleProvider } from "@/lib/rooms/ActiveModuleContext";
+import { useRoomChannels } from "@/lib/rooms/useRoomChannels";
 
 type LoadState =
   | { status: "loading"; roomId: string }
@@ -24,11 +31,6 @@ type LoadState =
 export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   const [load, setLoad] = useState<LoadState>({ status: "loading", roomId });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [membersOpen, setMembersOpen] = useState(false);
-  const commandPalette = useCommandPalette();
-  const searchParams = useSearchParams();
-  const initialOpenThreadId = searchParams.get("thread");
   const router = useRouter();
 
   useEffect(() => {
@@ -99,31 +101,111 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
     );
   }
 
-  const { room } = current;
+  return (
+    <RoomModulesProvider roomId={current.room.id}>
+      <RoomWorkspace room={current.room} />
+    </RoomModulesProvider>
+  );
+}
+
+/**
+ * Split out from the page component so it can call useRoomModules() —
+ * that hook requires the RoomModulesProvider mounted just above it, which
+ * only exists once a room has actually loaded.
+ */
+function RoomWorkspace({ room }: { room: RoomDetails }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [activeModuleType, setActiveModuleType] = useState<RoomModuleType>("CHAT");
+  const commandPalette = useCommandPalette();
+  const searchParams = useSearchParams();
+  const initialOpenThreadId = searchParams.get("thread");
+  const { modules, loading: modulesLoading, upsertModule, removeModuleLocal } = useRoomModules();
+  const {
+    channels,
+    activeChannelId,
+    activeChannel,
+    loading: channelsLoading,
+    selectChannel,
+    onChannelCreated,
+    onChannelUpdated,
+    onChannelArchived,
+  } = useRoomChannels(room.id);
+
+  const isOwner = room.currentUserRole === "OWNER";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <RoomHeader
-        room={room}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onOpenSearch={commandPalette.open}
-        onToggleMembers={() => setMembersOpen((v) => !v)}
-      />
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <RoomChat
+    <ActiveModuleProvider
+      value={{
+        modules,
+        activeModuleType,
+        onSelectModule: setActiveModuleType,
+        onAddModule: isOwner ? () => setCustomizeOpen(true) : undefined,
+        onOpenRoomSettings: () => setSettingsOpen(true),
+      }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <RoomHeader
           room={room}
-          membersOpen={membersOpen}
-          onCloseMembers={() => setMembersOpen(false)}
-          initialOpenThreadId={initialOpenThreadId}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSearch={commandPalette.open}
+          onToggleMembers={() => setMembersOpen((v) => !v)}
+        />
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {!modulesLoading && !channelsLoading && (
+            <ContextualSubSidebar
+              moduleType={activeModuleType}
+              roomId={room.id}
+              currentUserRole={room.currentUserRole}
+              channels={channels}
+              activeChannelId={activeChannelId}
+              onSelectChannel={selectChannel}
+              onChannelCreated={onChannelCreated}
+              onChannelUpdated={onChannelUpdated}
+              onChannelArchived={onChannelArchived}
+            />
+          )}
+
+          {activeModuleType === "CHAT" ? (
+            activeChannel ? (
+              <RoomChat
+                room={room}
+                channelId={activeChannel.id}
+                channelName={activeChannel.name}
+                membersOpen={membersOpen}
+                onCloseMembers={() => setMembersOpen(false)}
+                initialOpenThreadId={initialOpenThreadId}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-2" aria-hidden="true" />
+              </div>
+            )
+          ) : activeModuleType === "MEMBERS" ? (
+            <div className="flex min-h-0 flex-1">
+              <RoomMembersPanel members={room.members} />
+            </div>
+          ) : (
+            <ModulePlaceholder moduleType={activeModuleType} />
+          )}
+        </div>
+
+        <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />
+        <CustomizeRoomDialog
+          open={customizeOpen}
+          onClose={() => setCustomizeOpen(false)}
+          room={room}
+          modules={modules}
+          onModuleUpserted={upsertModule}
+          onModuleRemoved={removeModuleLocal}
+        />
+        <CommandPalette
+          isOpen={commandPalette.isOpen}
+          onClose={commandPalette.close}
+          currentRoom={{ id: room.id, repositoryId: room.repository.id, members: room.members }}
         />
       </div>
-
-      <RoomSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} room={room} />
-      <CommandPalette
-        isOpen={commandPalette.isOpen}
-        onClose={commandPalette.close}
-        currentRoom={{ id: room.id, repositoryId: room.repository.id, members: room.members }}
-      />
-    </div>
+    </ActiveModuleProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 
@@ -21,7 +21,19 @@ vi.mock("../ws/wsServer", () => ({
   broadcastMessageEvent: (...args: unknown[]) => mockBroadcastMessageEvent(...args),
 }));
 
+const mockGetDefaultChannel = vi.fn();
+vi.mock("../room/roomServiceClient", async () => {
+  const actual = await vi.importActual<typeof import("../room/roomServiceClient.js")>(
+    "../room/roomServiceClient.js",
+  );
+  return {
+    ...actual,
+    getDefaultChannel: (...args: unknown[]) => mockGetDefaultChannel(...args),
+  };
+});
+
 const ROOM_ID = "11111111-1111-4111-8111-111111111111";
+const CHANNEL_ID = "99999999-9999-4999-8999-999999999999";
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
@@ -50,6 +62,10 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
     vi.clearAllMocks();
   });
 
+  beforeEach(() => {
+    mockGetDefaultChannel.mockResolvedValue({ id: CHANNEL_ID, name: "general", isDefault: true });
+  });
+
   function send(body: object, secret = "test-internal-secret") {
     let req = request(app).post(`/internal/rooms/${ROOM_ID}/system-messages`);
     if (secret) req = req.set("x-internal-service-secret", secret);
@@ -61,6 +77,7 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "sys-msg-1",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: null,
       senderType: "SYSTEM",
       systemEventType: "github.pull_request.opened",
@@ -153,6 +170,7 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "sys-msg-2",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: null,
       senderType: "SYSTEM",
       systemEventType: "github.push",
@@ -181,6 +199,7 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "sys-msg-3",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: null,
       senderType: "SYSTEM",
       systemEventType: "github.pull_request.opened",
@@ -212,6 +231,7 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
     mockMessageCreate.mockResolvedValue({
       id: "sys-msg-4",
       roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
       userId: null,
       senderType: "SYSTEM",
       systemEventType: "github.pull_request.opened",

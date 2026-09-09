@@ -1,5 +1,5 @@
 import { prisma } from "../../config/prisma";
-import { getRoomMembership, RoomServiceClientError } from "../room/roomServiceClient";
+import { getRoomMembership, getChannel, getDefaultChannel, RoomServiceClientError } from "../room/roomServiceClient";
 import { encodeCursor, decodeCursor, InvalidCursorError } from "./cursor";
 import { resolveMentions } from "./mentions";
 import type { CreateMessageInput, EditMessageInput, ListMessagesQuery } from "./message.validation";
@@ -27,6 +27,7 @@ export class MessageServiceError extends Error {
 export type SafeMessage = {
   id: string;
   roomId: string;
+  channelId: string;
   userId: string | null;
   senderType: "user" | "system";
   systemEventType: string | null;
@@ -44,6 +45,7 @@ export type SafeMessage = {
 type MessageRecord = {
   id: string;
   roomId: string;
+  channelId: string;
   userId: string | null;
   senderType: "USER" | "SYSTEM";
   systemEventType: string | null;
@@ -62,6 +64,7 @@ type MessageRecord = {
 function toSafeMessage(message: {
   id: string;
   roomId: string;
+  channelId: string;
   userId: string | null;
   senderType?: "USER" | "SYSTEM";
   systemEventType?: string | null;
@@ -78,6 +81,7 @@ function toSafeMessage(message: {
   return {
     id: message.id,
     roomId: message.roomId,
+    channelId: message.channelId,
     userId: message.userId,
     senderType: message.senderType === "SYSTEM" ? "system" : "user",
     systemEventType: message.systemEventType ?? null,
@@ -115,18 +119,43 @@ export async function assertRoomMembership(roomId: string, userId: string): Prom
   }
 }
 
+/**
+ * Verifies channelId genuinely belongs to roomId and isn't archived, via
+ * Room Service — the authoritative owner of channel structure. Never
+ * trusts a roomId/channelId pairing supplied by the client without this
+ * check, same discipline as assertRoomMembership.
+ */
+export async function assertChannelInRoom(roomId: string, channelId: string): Promise<void> {
+  let channel;
+  try {
+    channel = await getChannel(roomId, channelId);
+  } catch (err) {
+    if (err instanceof RoomServiceClientError) {
+      throw new MessageServiceError("Unable to verify channel access. Please try again.", 502);
+    }
+    throw err;
+  }
+
+  if (!channel) {
+    throw new MessageServiceError("Channel not found.", 404);
+  }
+}
+
 export async function createMessage(
   roomId: string,
+  channelId: string,
   userId: string,
   input: CreateMessageInput,
 ): Promise<SafeMessage> {
   await assertRoomMembership(roomId, userId);
+  await assertChannelInRoom(roomId, channelId);
 
   const mentionedUserIds = await resolveMentions(roomId, input.content);
 
   const message = await prisma.message.create({
     data: {
       roomId,
+      channelId,
       userId,
       content: input.content,
       mentionedUserIds,
@@ -180,6 +209,10 @@ export async function createReply(
     prisma.message.create({
       data: {
         roomId,
+        // A reply always lives in its parent's channel — there's no
+        // separate concept of "which channel is this reply in," it's
+        // implicitly wherever the thread it belongs to already is.
+        channelId: parent.channelId,
         userId,
         content: input.content,
         parentMessageId,
@@ -230,9 +263,29 @@ export async function createSystemMessage(
   roomId: string,
   input: CreateSystemMessageInput,
 ): Promise<SafeMessage> {
+  // GitHub events have no channel of their own to target — a push/PR/issue
+  // isn't "in" any channel a human picked — so they always land in the
+  // room's general channel, the same place they'd have appeared before
+  // channels existed. This preserves the existing GitHub webhook contract
+  // unchanged: GitHub Service still only ever needs to know the roomId.
+  let generalChannel;
+  try {
+    generalChannel = await getDefaultChannel(roomId);
+  } catch (err) {
+    if (err instanceof RoomServiceClientError) {
+      throw new MessageServiceError("Unable to resolve the room's default channel. Please try again.", 502);
+    }
+    throw err;
+  }
+
+  if (!generalChannel) {
+    throw new MessageServiceError("Room not found.", 404);
+  }
+
   const message = await prisma.message.create({
     data: {
       roomId,
+      channelId: generalChannel.id,
       userId: null,
       senderType: "SYSTEM",
       systemEventType: input.eventType,
@@ -280,10 +333,12 @@ export type MessageHistoryPage = {
  */
 export async function getMessageHistory(
   roomId: string,
+  channelId: string,
   userId: string,
   query: ListMessagesQuery,
 ): Promise<MessageHistoryPage> {
   await assertRoomMembership(roomId, userId);
+  await assertChannelInRoom(roomId, channelId);
 
   let beforeSequence: bigint | undefined;
   if (query.before !== undefined) {
@@ -304,6 +359,7 @@ export async function getMessageHistory(
   const records: MessageRecord[] = await prisma.message.findMany({
     where: {
       roomId,
+      channelId,
       parentMessageId: null,
       ...(beforeSequence !== undefined ? { sequence: { lt: beforeSequence } } : {}),
     },

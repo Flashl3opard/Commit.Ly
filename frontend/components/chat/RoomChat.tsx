@@ -28,11 +28,16 @@ import type { RoomDetails } from "@/lib/api/rooms";
  */
 export function RoomChat({
   room,
+  channelId,
+  channelName,
   membersOpen,
   onCloseMembers,
   initialOpenThreadId,
 }: {
   room: RoomDetails;
+  /** The currently-selected channel within this room's Chat module. */
+  channelId: string;
+  channelName: string;
   membersOpen: boolean;
   onCloseMembers: () => void;
   /** Opens straight to a thread on mount — used when arriving via a search result for a reply. */
@@ -40,16 +45,26 @@ export function RoomChat({
 }) {
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
-  const chat = useChatRoom(room.id, currentUserId);
+  const chat = useChatRoom(room.id, channelId, currentUserId);
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
-  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(initialOpenThreadId ?? null);
+  const [threadState, setThreadState] = useState<{ channelId: string; openThreadMessageId: string | null }>({
+    channelId,
+    openThreadMessageId: initialOpenThreadId ?? null,
+  });
+  // A thread from one channel shouldn't stay open after switching to
+  // another — derived during render (not an effect) so there's no extra
+  // render/flash of the stale thread before it closes.
+  const openThreadMessageId = threadState.channelId === channelId ? threadState.openThreadMessageId : null;
+  function setOpenThreadMessageId(id: string | null) {
+    setThreadState({ channelId, openThreadMessageId: id });
+  }
 
   const handleSend = useCallback(
     async (content: string) => {
-      const { message } = await sendMessage(room.id, content);
+      const { message } = await sendMessage(room.id, channelId, content);
       chat.upsertLocalMessage(message);
     },
-    [room.id, chat],
+    [room.id, channelId, chat],
   );
 
   const handleEdit = useCallback(
@@ -100,10 +115,8 @@ export function RoomChat({
               </div>
               <CommitlyMark className="h-10 w-10" />
             </div>
-            <h2 className="mt-4 text-base font-semibold text-foreground">Welcome to {room.name}</h2>
-            <p className="mt-1.5 max-w-sm text-sm text-muted">
-              This is the beginning of the conversation for this repository.
-            </p>
+            <h2 className="mt-4 text-base font-semibold text-foreground">Welcome to #{channelName}</h2>
+            <p className="mt-1.5 max-w-sm text-sm text-muted">This is the beginning of #{channelName}.</p>
           </div>
         ) : (
           <MessageList
