@@ -7,6 +7,7 @@ process.env.CLIENT_ORIGIN ??= "http://localhost:3000";
 process.env.INTERNAL_SERVICE_SECRET ??= "test-internal-secret";
 
 const mockGetGithubIdentityState = vi.fn();
+const mockAreUsersFriends = vi.fn();
 
 vi.mock("../user/user.service", async () => {
   const actual = await vi.importActual<typeof import("../user/user.service.js")>("../user/user.service.js");
@@ -15,6 +16,14 @@ vi.mock("../user/user.service", async () => {
     getGithubIdentityState: (...args: unknown[]) => mockGetGithubIdentityState(...args),
     linkGithubIdentity: vi.fn(),
     unlinkGithubIdentity: vi.fn(),
+  };
+});
+
+vi.mock("../friend/friend.service", async () => {
+  const actual = await vi.importActual<typeof import("../friend/friend.service.js")>("../friend/friend.service.js");
+  return {
+    ...actual,
+    areUsersFriends: (...args: unknown[]) => mockAreUsersFriends(...args),
   };
 });
 
@@ -67,5 +76,56 @@ describe("GET /internal/users/:id/github", () => {
     expect(res.body).toEqual({
       identity: { githubId: "12345", githubUsername: "octocat", githubVerified: true },
     });
+  });
+});
+
+const USER_A_ID = "44444444-4444-4444-8444-444444444444";
+const USER_B_ID = "55555555-5555-4555-8555-555555555555";
+
+describe("GET /internal/users/:userAId/friends/:userBId/status", () => {
+  let app: ReturnType<typeof express>;
+
+  beforeAll(async () => {
+    const appModule = (await import("../../app.js")) as unknown as { default: ReturnType<typeof express> };
+    app = appModule.default;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 without the internal service secret header", async () => {
+    const res = await request(app).get(`/internal/users/${USER_A_ID}/friends/${USER_B_ID}/status`);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for a malformed user id", async () => {
+    const res = await request(app)
+      .get(`/internal/users/not-a-uuid/friends/${USER_B_ID}/status`)
+      .set("x-internal-service-secret", "test-internal-secret");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns areFriends: true when the two users are friends", async () => {
+    mockAreUsersFriends.mockResolvedValue(true);
+
+    const res = await request(app)
+      .get(`/internal/users/${USER_A_ID}/friends/${USER_B_ID}/status`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ areFriends: true });
+    expect(mockAreUsersFriends).toHaveBeenCalledWith(USER_A_ID, USER_B_ID);
+  });
+
+  it("returns areFriends: false when they are not friends", async () => {
+    mockAreUsersFriends.mockResolvedValue(false);
+
+    const res = await request(app)
+      .get(`/internal/users/${USER_A_ID}/friends/${USER_B_ID}/status`)
+      .set("x-internal-service-secret", "test-internal-secret");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ areFriends: false });
   });
 });

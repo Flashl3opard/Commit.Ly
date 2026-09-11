@@ -15,7 +15,7 @@ type JoinRoomDialogProps = {
 function errorMessageFor(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401) return "Your session has expired. Please log in again.";
-    if (err.status === 400) return "Invalid room code or password.";
+    if (err.status === 404) return "No room found with that code.";
     return err.message;
   }
   return "Something went wrong. Please try again.";
@@ -23,13 +23,11 @@ function errorMessageFor(err: unknown): string {
 
 export function JoinRoomDialog({ open, onClose, onJoined }: JoinRoomDialogProps) {
   const [roomCode, setRoomCode] = useState("");
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function resetAndClose() {
     setRoomCode("");
-    setPassword("");
     setError(null);
     onClose();
   }
@@ -42,15 +40,10 @@ export function JoinRoomDialog({ open, onClose, onJoined }: JoinRoomDialogProps)
       setError("Room code must be exactly 6 digits.");
       return;
     }
-    if (!password) {
-      setError("Password is required.");
-      return;
-    }
 
     setSubmitting(true);
     try {
-      const { room } = await joinRoom({ roomCode, password });
-      setPassword("");
+      const { room } = await joinRoom({ roomCode });
       onJoined(room);
       resetAndClose();
     } catch (err) {
@@ -77,20 +70,6 @@ export function JoinRoomDialog({ open, onClose, onJoined }: JoinRoomDialogProps)
             onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="123456"
             className="focus-ring mt-1.5 w-full rounded-lg border border-border-strong bg-background-2 px-3.5 py-2 text-center font-mono text-lg tracking-[0.3em] text-foreground placeholder:text-muted-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="join-room-password" className="text-xs font-medium tracking-wide text-muted-2 uppercase">
-            Password
-          </label>
-          <input
-            id="join-room-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            maxLength={128}
-            className="focus-ring mt-1.5 w-full rounded-lg border border-border-strong bg-background-2 px-3.5 py-2 text-sm text-foreground"
           />
         </div>
 

@@ -29,6 +29,7 @@ export type RoomMember = {
   displayName: string | null;
   avatarUrl: string | null;
   customStatus: string | null;
+  githubVerified: boolean;
   role: RoomRole;
   joinedAt: string;
 };
@@ -99,16 +100,18 @@ export type UpdateRoomModuleRequest = Partial<{
 export type CreateRoomRequest = {
   name: string;
   githubRepositoryId: string;
-  password: string;
 };
 
 export type JoinRoomRequest = {
   roomCode: string;
-  password: string;
 };
 
 export function getMyRooms(): Promise<{ rooms: Room[] }> {
   return roomRequest<{ rooms: Room[] }>("/rooms");
+}
+
+export function getSharedRooms(userId: string): Promise<{ rooms: Room[] }> {
+  return roomRequest<{ rooms: Room[] }>(`/rooms/shared-with/${encodeURIComponent(userId)}`);
 }
 
 export function getRoom(roomId: string): Promise<{ room: RoomDetails }> {

@@ -46,14 +46,13 @@ vi.mock("../github-events/roomServiceClient", () => ({
   },
 }));
 
-const mockCreateSystemMessage = vi.fn().mockResolvedValue(undefined);
-vi.mock("../github-events/chatServiceClient", () => ({
-  createSystemMessage: (...args: unknown[]) => mockCreateSystemMessage(...args),
-  ChatServiceClientError: class ChatServiceClientError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
-      super(message);
-      this.status = status;
+const mockPublishGithubEvent = vi.fn().mockResolvedValue(undefined);
+vi.mock("../kafka/kafka.producer", () => ({
+  publishGithubEvent: (...args: unknown[]) => mockPublishGithubEvent(...args),
+  KafkaPublishError: class KafkaPublishError extends Error {
+    constructor(message: string, cause?: unknown) {
+      super(message, cause ? { cause } : undefined);
+      this.name = "KafkaPublishError";
     }
   },
 }));
@@ -202,9 +201,11 @@ describe("POST /github/webhooks", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
-    expect(mockCreateSystemMessage).toHaveBeenCalledWith(
+    expect(mockPublishGithubEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "github.push" }),
       "room-uuid-1",
-      expect.objectContaining({ eventType: "github.push" }),
+      expect.any(String),
+      expect.any(Object),
     );
   });
 
@@ -219,9 +220,11 @@ describe("POST /github/webhooks", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
-    expect(mockCreateSystemMessage).toHaveBeenCalledWith(
+    expect(mockPublishGithubEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "github.pull_request.opened" }),
       "room-uuid-1",
-      expect.objectContaining({ eventType: "github.pull_request.opened" }),
+      expect.any(String),
+      expect.any(Object),
     );
   });
 
@@ -236,13 +239,15 @@ describe("POST /github/webhooks", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
-    expect(mockCreateSystemMessage).toHaveBeenCalledWith(
+    expect(mockPublishGithubEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "github.issue.opened" }),
       "room-uuid-1",
-      expect.objectContaining({ eventType: "github.issue.opened" }),
+      expect.any(String),
+      expect.any(Object),
     );
   });
 
-  it("accepts a valid webhook but does not call Chat Service when no room exists for the repository", async () => {
+  it("accepts a valid webhook but does not publish to Kafka when no room exists for the repository", async () => {
     // mockFindRoomByGithubRepositoryId defaults to null (no room) per the module mock above.
     const payload = pushPayload();
     const raw = Buffer.from(JSON.stringify(payload));
@@ -253,7 +258,7 @@ describe("POST /github/webhooks", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true, ignored: true });
-    expect(mockCreateSystemMessage).not.toHaveBeenCalled();
+    expect(mockPublishGithubEvent).not.toHaveBeenCalled();
   });
 
   it("safely ignores an unsupported event (e.g. installation)", async () => {
@@ -455,7 +460,7 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
   afterEach(() => {
     vi.clearAllMocks();
     mockFindRoomByGithubRepositoryId.mockResolvedValue(null);
-    mockCreateSystemMessage.mockResolvedValue(undefined);
+    mockPublishGithubEvent.mockResolvedValue(undefined);
   });
 
   function send(body: object, headers: Record<string, string>) {
@@ -491,10 +496,15 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
 
     expect(res.status).toBe(200);
     expect(mockFindRoomByGithubRepositoryId).toHaveBeenCalledWith("123456");
-    expect(mockCreateSystemMessage).toHaveBeenCalledWith("room-abc", expect.objectContaining({ eventType: "github.push" }));
+    expect(mockPublishGithubEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "github.push" }),
+      "room-abc",
+      expect.any(String),
+      expect.any(Object),
+    );
   });
 
-  it("does not call Chat Service when no room matches the repository", async () => {
+  it("does not publish to Kafka when no room matches the repository", async () => {
     mockFindRoomByGithubRepositoryId.mockResolvedValue(null);
     const payload = push();
     const raw = Buffer.from(JSON.stringify(payload));
@@ -506,10 +516,10 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
     });
 
     expect(res.status).toBe(200);
-    expect(mockCreateSystemMessage).not.toHaveBeenCalled();
+    expect(mockPublishGithubEvent).not.toHaveBeenCalled();
   });
 
-  it("never calls Room Service or Chat Service for an invalid signature", async () => {
+  it("never calls Room Service or publishes to Kafka for an invalid signature", async () => {
     const payload = push();
     const res = await send(payload, {
       "X-Hub-Signature-256": "sha256=" + "0".repeat(64),
@@ -519,7 +529,7 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
 
     expect(res.status).toBe(401);
     expect(mockFindRoomByGithubRepositoryId).not.toHaveBeenCalled();
-    expect(mockCreateSystemMessage).not.toHaveBeenCalled();
+    expect(mockPublishGithubEvent).not.toHaveBeenCalled();
   });
 
   it("does not create a duplicate message for a delivery already marked completed", async () => {
@@ -535,20 +545,19 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
 
     const first = await send(payload, headers);
     expect(first.status).toBe(200);
-    expect(mockCreateSystemMessage).toHaveBeenCalledTimes(1);
+    expect(mockPublishGithubEvent).toHaveBeenCalledTimes(1);
 
     const second = await send(payload, headers);
     expect(second.status).toBe(200);
     // Still only ever called once — the second delivery was recognized as
-    // already completed and never reached Chat Service again.
-    expect(mockCreateSystemMessage).toHaveBeenCalledTimes(1);
+    // already completed and never published to Kafka again.
+    expect(mockPublishGithubEvent).toHaveBeenCalledTimes(1);
   });
 
-  it("returns a 5xx and remains retryable when Chat Service fails", async () => {
+  it("returns a 5xx and remains retryable when the Kafka publish fails", async () => {
     mockFindRoomByGithubRepositoryId.mockResolvedValue("room-abc");
-    mockCreateSystemMessage.mockRejectedValue(
-      Object.assign(new Error("Chat Service request failed"), { status: 502 }),
-    );
+    const KafkaPublishErrorCtor = (await import("../kafka/kafka.producer.js")).KafkaPublishError;
+    mockPublishGithubEvent.mockRejectedValue(new KafkaPublishErrorCtor("Failed to publish github.push to Kafka"));
     const payload = push();
     const raw = Buffer.from(JSON.stringify(payload));
     const deliveryId = "stage-c-retry-" + Math.random();
@@ -573,26 +582,24 @@ describe("POST /github/webhooks — Stage C: GitHub -> Room -> Chat pipeline", (
       "X-GitHub-Delivery": deliveryId,
     };
 
-    // First attempt: Chat Service is unavailable.
-    const ChatServiceClientErrorCtor = (
-      await import("../github-events/chatServiceClient.js")
-    ).ChatServiceClientError;
-    mockCreateSystemMessage.mockRejectedValueOnce(new ChatServiceClientErrorCtor("unavailable", 502));
+    // First attempt: Kafka is unreachable.
+    const KafkaPublishErrorCtor = (await import("../kafka/kafka.producer.js")).KafkaPublishError;
+    mockPublishGithubEvent.mockRejectedValueOnce(new KafkaPublishErrorCtor("unavailable"));
 
     const first = await send(payload, headers);
     expect(first.status).toBeGreaterThanOrEqual(500);
-    expect(mockCreateSystemMessage).toHaveBeenCalledTimes(1);
+    expect(mockPublishGithubEvent).toHaveBeenCalledTimes(1);
 
-    // Second attempt (GitHub retry, same delivery id): Chat Service now succeeds.
-    mockCreateSystemMessage.mockResolvedValueOnce(undefined);
+    // Second attempt (GitHub retry, same delivery id): Kafka publish now succeeds.
+    mockPublishGithubEvent.mockResolvedValueOnce(undefined);
     const second = await send(payload, headers);
     expect(second.status).toBe(200);
-    expect(mockCreateSystemMessage).toHaveBeenCalledTimes(2);
+    expect(mockPublishGithubEvent).toHaveBeenCalledTimes(2);
 
     // Third attempt (a further GitHub retry after our 200): already
     // completed — must not create a second message.
     const third = await send(payload, headers);
     expect(third.status).toBe(200);
-    expect(mockCreateSystemMessage).toHaveBeenCalledTimes(2);
+    expect(mockPublishGithubEvent).toHaveBeenCalledTimes(2);
   });
 });

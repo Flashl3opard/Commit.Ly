@@ -1,16 +1,9 @@
-import bcrypt from "bcrypt";
 import { Prisma, RoomRole } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { generateUniqueRoomCode } from "./roomCode";
 import { getRepositoryById, GithubServiceError } from "../github/githubServiceClient";
 import { getPublicProfile } from "../user/userServiceClient";
 import type { CreateRoomInput, JoinRoomInput } from "./room.validation";
-
-const BCRYPT_COST = 10;
-// A fixed, valid bcrypt hash with no corresponding real password — used only
-// to keep the "room not found" path's timing similar to a real password
-// mismatch, so response timing can't be used to enumerate room codes.
-const DUMMY_PASSWORD_HASH = "$2b$10$4NGhnl93UzagRrNfwwqO.uL4gaclwE9oPnR8D1f.aWrH9VvV6Kk/q";
 
 export class RoomServiceError extends Error {
   status: number;
@@ -45,6 +38,7 @@ export type SafeRoomMember = {
   displayName: string | null;
   avatarUrl: string | null;
   customStatus: string | null;
+  githubVerified: boolean;
   role: RoomRole;
   joinedAt: Date;
 };
@@ -80,7 +74,6 @@ async function assertRepositoryOwnership(userId: string, githubRepositoryId: str
 export async function createRoom(userId: string, input: CreateRoomInput): Promise<SafeRoomSummary> {
   const repository = await assertRepositoryOwnership(userId, input.githubRepositoryId);
 
-  const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
   const roomCode = await generateUniqueRoomCode();
 
   try {
@@ -89,7 +82,6 @@ export async function createRoom(userId: string, input: CreateRoomInput): Promis
         data: {
           name: input.name,
           roomCode,
-          passwordHash,
           ownerUserId: userId,
           githubRepositoryId: repository.id,
         },
@@ -144,20 +136,8 @@ export async function joinRoom(
 ): Promise<{ id: string; name: string; roomCode: string; role: RoomRole }> {
   const room = await prisma.room.findUnique({ where: { roomCode: input.roomCode } });
 
-  // Constant-shape response whether the room is missing or the password is
-  // wrong, to avoid letting room codes be enumerated via response timing/shape.
-  const genericError = () => new RoomServiceError("Invalid room code or password.", 400);
-
   if (!room) {
-    // Still runs a bcrypt compare against a fixed dummy hash so this path
-    // takes roughly the same time as a real password mismatch.
-    await bcrypt.compare(input.password, DUMMY_PASSWORD_HASH);
-    throw genericError();
-  }
-
-  const passwordMatches = await bcrypt.compare(input.password, room.passwordHash);
-  if (!passwordMatches) {
-    throw genericError();
+    throw new RoomServiceError("Room not found. Check the room code and try again.", 404);
   }
 
   const existingMembership = await prisma.roomMember.findUnique({
@@ -178,6 +158,36 @@ export async function joinRoom(
 export async function getRoomsForUser(userId: string): Promise<SafeRoomSummary[]> {
   const memberships = await prisma.roomMember.findMany({
     where: { userId },
+    include: { room: { include: { githubRepository: true } } },
+    orderBy: { joinedAt: "desc" },
+  });
+
+  return memberships.map((membership) => ({
+    id: membership.room.id,
+    name: membership.room.name,
+    roomCode: membership.room.roomCode,
+    repository: {
+      name: membership.room.githubRepository.name,
+      fullName: membership.room.githubRepository.fullName,
+      htmlUrl: membership.room.githubRepository.htmlUrl,
+    },
+    role: membership.role,
+    createdAt: membership.room.createdAt,
+  }));
+}
+
+/**
+ * Rooms the requesting user and otherUserId both belong to — used by a
+ * profile page to show "rooms in common." Scoped to the requester's own
+ * membership first (never leaks which rooms otherUserId is in beyond
+ * what the requester is already a member of).
+ */
+export async function getSharedRooms(userId: string, otherUserId: string): Promise<SafeRoomSummary[]> {
+  const memberships = await prisma.roomMember.findMany({
+    where: {
+      userId,
+      room: { members: { some: { userId: otherUserId } } },
+    },
     include: { room: { include: { githubRepository: true } } },
     orderBy: { joinedAt: "desc" },
   });
@@ -228,6 +238,7 @@ export async function getRoomDetails(userId: string, roomId: string): Promise<Sa
         displayName: profile?.displayName ?? null,
         avatarUrl: profile?.avatarUrl ?? null,
         customStatus: profile?.customStatus ?? null,
+        githubVerified: profile?.githubVerified ?? false,
         role: member.role,
         joinedAt: member.joinedAt,
       };

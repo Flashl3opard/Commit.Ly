@@ -88,7 +88,7 @@ export function GithubAppSection() {
                 <button
                   type="button"
                   onClick={handleViewRepositories}
-                  className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+                  className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover-surface"
                 >
                   <FolderGit2 className="h-4 w-4" aria-hidden="true" />
                   View repositories
@@ -96,7 +96,7 @@ export function GithubAppSection() {
               )}
               <a
                 href={installGithubAppUrl()}
-                className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+                className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover-surface"
               >
                 <Settings2 className="h-4 w-4" aria-hidden="true" />
                 Add or remove repositories
@@ -108,7 +108,7 @@ export function GithubAppSection() {
             <p className="text-sm text-muted">Commit.ly can access your authorized repositories.</p>
             <a
               href={installGithubAppUrl()}
-              className="focus-ring mt-3 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+              className="focus-ring mt-3 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover-surface"
             >
               <GithubIcon className="h-4 w-4" />
               Install Commit.ly on GitHub

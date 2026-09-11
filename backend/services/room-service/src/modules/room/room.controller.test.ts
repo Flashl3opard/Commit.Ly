@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
-import bcrypt from "bcrypt";
 
 process.env.JWT_SECRET ??= "test-secret-for-vitest";
 process.env.CLIENT_ORIGIN ??= "http://localhost:3000";
@@ -122,14 +121,13 @@ describe("Room Service routes", () => {
   });
 
   describe("POST /rooms (create)", () => {
-    it("creates a room, generates a 6-digit code, hashes the password, and makes the creator OWNER", async () => {
+    it("creates a room, generates a 6-digit code, and makes the creator OWNER", async () => {
       mockGetRepositoryById.mockResolvedValue(REPO_INFO);
       mockRoomFindUnique.mockResolvedValue(null); // room code uniqueness check
       mockRoomCreate.mockImplementation(async (args: { data: Record<string, unknown> }) => ({
         id: "room-uuid-1",
         name: args.data.name,
         roomCode: args.data.roomCode,
-        passwordHash: args.data.passwordHash,
         ownerUserId: args.data.ownerUserId,
         githubRepositoryId: args.data.githubRepositoryId,
         createdAt: new Date(),
@@ -141,16 +139,12 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1" });
 
       expect(res.status).toBe(201);
       expect(res.body.room.roomCode).toMatch(/^\d{6}$/);
       expect(res.body.room.role).toBe("OWNER");
       expect(res.body.room).not.toHaveProperty("passwordHash");
-
-      const createCall = mockRoomCreate.mock.calls[0][0];
-      expect(createCall.data.passwordHash).not.toBe("hunter22");
-      expect(await bcrypt.compare("hunter22", createCall.data.passwordHash)).toBe(true);
 
       const memberCreateCall = mockMemberCreate.mock.calls[0][0];
       expect(memberCreateCall.data.role).toBe("OWNER");
@@ -164,7 +158,6 @@ describe("Room Service routes", () => {
         id: "room-uuid-1",
         name: args.data.name,
         roomCode: args.data.roomCode,
-        passwordHash: args.data.passwordHash,
         ownerUserId: args.data.ownerUserId,
         githubRepositoryId: args.data.githubRepositoryId,
         createdAt: new Date(),
@@ -178,7 +171,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1" });
 
       expect(res.status).toBe(201);
 
@@ -204,7 +197,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "missing-repo", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "missing-repo" });
 
       expect(res.status).toBe(404);
       expect(mockRoomCreate).not.toHaveBeenCalled();
@@ -217,7 +210,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1" });
 
       expect(res.status).toBe(403);
       expect(mockRoomCreate).not.toHaveBeenCalled();
@@ -230,7 +223,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1" });
 
       expect(res.status).toBe(403);
     });
@@ -251,7 +244,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms")
         .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "hunter22" });
+        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1" });
 
       expect(res.status).toBe(409);
     });
@@ -262,26 +255,14 @@ describe("Room Service routes", () => {
 
       expect(res.status).toBe(400);
     });
-
-    it("returns 400 for a password below the minimum length", async () => {
-      const token = signToken("user-42");
-      const res = await request(app)
-        .post("/rooms")
-        .set("Cookie", [`token=${token}`])
-        .send({ name: "My Project", githubRepositoryId: "repo-uuid-1", password: "abc" });
-
-      expect(res.status).toBe(400);
-    });
   });
 
   describe("POST /rooms/join", () => {
-    it("joins successfully with a valid room code and password", async () => {
-      const passwordHash = await bcrypt.hash("hunter22", 10);
+    it("joins successfully with a valid room code", async () => {
       mockRoomFindUnique.mockResolvedValue({
         id: "room-uuid-1",
         name: "My Project",
         roomCode: "123456",
-        passwordHash,
       });
       mockMemberFindUnique.mockResolvedValue(null);
       mockMemberCreate.mockResolvedValue({});
@@ -290,7 +271,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms/join")
         .set("Cookie", [`token=${token}`])
-        .send({ roomCode: "123456", password: "hunter22" });
+        .send({ roomCode: "123456" });
 
       expect(res.status).toBe(200);
       expect(res.body.room.role).toBe("MEMBER");
@@ -299,31 +280,17 @@ describe("Room Service routes", () => {
       });
     });
 
-    it("returns 400 for the wrong password", async () => {
-      const passwordHash = await bcrypt.hash("hunter22", 10);
-      mockRoomFindUnique.mockResolvedValue({ id: "room-uuid-1", name: "My Project", roomCode: "123456", passwordHash });
-
-      const token = signToken("user-99");
-      const res = await request(app)
-        .post("/rooms/join")
-        .set("Cookie", [`token=${token}`])
-        .send({ roomCode: "123456", password: "wrong-password" });
-
-      expect(res.status).toBe(400);
-      expect(mockMemberCreate).not.toHaveBeenCalled();
-    });
-
-    it("returns 400 for a non-existent room code (same shape as wrong password)", async () => {
+    it("returns 404 for a non-existent room code", async () => {
       mockRoomFindUnique.mockResolvedValue(null);
       const token = signToken("user-99");
 
       const res = await request(app)
         .post("/rooms/join")
         .set("Cookie", [`token=${token}`])
-        .send({ roomCode: "999999", password: "hunter22" });
+        .send({ roomCode: "999999" });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe("Invalid room code or password.");
+      expect(res.status).toBe(404);
+      expect(mockMemberCreate).not.toHaveBeenCalled();
     });
 
     it("returns 400 for a malformed room code", async () => {
@@ -331,14 +298,13 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms/join")
         .set("Cookie", [`token=${token}`])
-        .send({ roomCode: "12ab", password: "hunter22" });
+        .send({ roomCode: "12ab" });
 
       expect(res.status).toBe(400);
     });
 
     it("is idempotent when the user is already a member", async () => {
-      const passwordHash = await bcrypt.hash("hunter22", 10);
-      mockRoomFindUnique.mockResolvedValue({ id: "room-uuid-1", name: "My Project", roomCode: "123456", passwordHash });
+      mockRoomFindUnique.mockResolvedValue({ id: "room-uuid-1", name: "My Project", roomCode: "123456" });
       mockMemberFindUnique.mockResolvedValue({
         id: "member-uuid-1",
         roomId: "room-uuid-1",
@@ -350,7 +316,7 @@ describe("Room Service routes", () => {
       const res = await request(app)
         .post("/rooms/join")
         .set("Cookie", [`token=${token}`])
-        .send({ roomCode: "123456", password: "hunter22" });
+        .send({ roomCode: "123456" });
 
       expect(res.status).toBe(200);
       expect(mockMemberCreate).not.toHaveBeenCalled();
@@ -378,6 +344,47 @@ describe("Room Service routes", () => {
       expect(res.status).toBe(200);
       expect(res.body.rooms).toHaveLength(1);
       expect(res.body.rooms[0].roomCode).toBe("123456");
+    });
+  });
+
+  describe("GET /rooms/shared-with/:userId", () => {
+    const OTHER_USER_ID = "44444444-4444-4444-8444-444444444444";
+
+    it("returns 401 without a session", async () => {
+      const res = await request(app).get(`/rooms/shared-with/${OTHER_USER_ID}`);
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 400 for a malformed user id", async () => {
+      const token = signToken("user-42");
+      const res = await request(app).get("/rooms/shared-with/not-a-uuid").set("Cookie", [`token=${token}`]);
+      expect(res.status).toBe(400);
+    });
+
+    it("returns rooms both users belong to", async () => {
+      mockMemberFindMany.mockResolvedValue([
+        {
+          role: "OWNER",
+          room: {
+            id: "room-uuid-1",
+            name: "Shared Project",
+            roomCode: "123456",
+            createdAt: new Date(),
+            githubRepository: { name: "my-project", fullName: "octocat/my-project", htmlUrl: "https://github.com/octocat/my-project" },
+          },
+        },
+      ]);
+
+      const token = signToken("user-42");
+      const res = await request(app).get(`/rooms/shared-with/${OTHER_USER_ID}`).set("Cookie", [`token=${token}`]);
+
+      expect(res.status).toBe(200);
+      expect(res.body.rooms).toHaveLength(1);
+      expect(res.body.rooms[0].name).toBe("Shared Project");
+
+      const findManyCall = mockMemberFindMany.mock.calls[0][0];
+      expect(findManyCall.where.userId).toBe("user-42");
+      expect(findManyCall.where.room.members.some.userId).toBe(OTHER_USER_ID);
     });
   });
 
@@ -479,6 +486,7 @@ describe("Room Service routes", () => {
         displayName: "Octo Cat",
         avatarUrl: null,
         customStatus: "Working on auth",
+        githubVerified: true,
       });
 
       const token = signToken("user-42");
@@ -486,7 +494,34 @@ describe("Room Service routes", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.room.members[0].customStatus).toBe("Working on auth");
+      expect(res.body.room.members[0].githubVerified).toBe(true);
       expect(res.body.room.repository.id).toBe("repo-uuid-1");
+    });
+
+    it("defaults githubVerified to false when the public profile lookup fails", async () => {
+      mockMemberFindUnique.mockResolvedValue({ roomId, userId: "user-42", role: "OWNER" });
+      mockRoomFindUnique.mockResolvedValue({
+        id: roomId,
+        name: "My Project",
+        roomCode: "123456",
+        createdAt: new Date(),
+        githubRepository: {
+          id: "repo-uuid-1",
+          name: "my-project",
+          fullName: "octocat/my-project",
+          htmlUrl: "https://github.com/octocat/my-project",
+          private: true,
+          defaultBranch: "main",
+        },
+        members: [{ userId: "user-42", role: "OWNER", joinedAt: new Date() }],
+      });
+      mockGetPublicProfile.mockResolvedValue(null);
+
+      const token = signToken("user-42");
+      const res = await request(app).get(`/rooms/${roomId}`).set("Cookie", [`token=${token}`]);
+
+      expect(res.status).toBe(200);
+      expect(res.body.room.members[0].githubVerified).toBe(false);
     });
   });
 

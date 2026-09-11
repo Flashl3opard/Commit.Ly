@@ -274,7 +274,7 @@ function ChannelRow({
                   setMenuOpen(false);
                   setRenaming(true);
                 }}
-                className="focus-ring flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-white/5"
+                className="focus-ring flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover-surface"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 Rename

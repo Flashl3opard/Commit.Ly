@@ -1,5 +1,6 @@
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { RoomOwnerMark } from "@/components/ui/RoomOwnerMark";
+import { GithubVerifiedBadge } from "@/components/ui/GithubVerifiedBadge";
 import type { RoomMember } from "@/lib/api/rooms";
 
 type RoomMembersPanelProps = {
@@ -37,7 +38,10 @@ function MemberRow({ member, isOnline, showPresence }: { member: RoomMember; isO
           member.displayName && <p className="truncate text-xs text-muted-2">@{member.username}</p>
         )}
       </div>
-      {member.role === "OWNER" && <RoomOwnerMark />}
+      <div className="flex shrink-0 items-center gap-1">
+        {member.role === "OWNER" && <RoomOwnerMark />}
+        {member.githubVerified && <GithubVerifiedBadge />}
+      </div>
     </li>
   );
 }

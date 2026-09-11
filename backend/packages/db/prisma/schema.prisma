@@ -25,13 +25,46 @@ model User {
 
   profileCompleted Boolean @default(false)
 
-  skills              UserSkill[]
-  githubInstallations GithubInstallation[]
-  ownedRooms          Room[]
-  roomMemberships     RoomMember[]
+  skills                 UserSkill[]
+  githubInstallations    GithubInstallation[]
+  ownedRooms             Room[]
+  roomMemberships        RoomMember[]
+  sentFriendRequests     FriendRequest[]      @relation("SentFriendRequests")
+  receivedFriendRequests FriendRequest[]      @relation("ReceivedFriendRequests")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// Owned by User Service. A single row represents the entire lifecycle of
+// one friend relationship attempt between two users — accepting or
+// rejecting updates the same row rather than creating a new one, so
+// there is at most one FriendRequest per ordered (senderId, receiverId)
+// pair ever. "Are A and B friends" is answered by querying for a row
+// between them (either direction) with status ACCEPTED — no separate
+// denormalized Friendship table, since the request row already carries
+// everything needed and two sources of truth for the same fact would
+// invite drift.
+model FriendRequest {
+  id         String              @id @default(uuid())
+  senderId   String
+  sender     User                @relation("SentFriendRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User                @relation("ReceivedFriendRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     FriendRequestStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId, status])
 }
 
 model UserSkill {
@@ -92,10 +125,9 @@ enum RoomRole {
 }
 
 model Room {
-  id           String @id @default(uuid())
-  name         String
-  roomCode     String @unique
-  passwordHash String
+  id       String @id @default(uuid())
+  name     String
+  roomCode String @unique
 
   ownerUserId String
   owner       User   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
@@ -226,6 +258,19 @@ model Message {
   // the raw GitHub webhook payload.
   metadata Json?
 
+  // Present only on SYSTEM messages created from a Kafka-delivered event
+  // (see chat-service/src/modules/kafka). This is the normalized event's
+  // `eventId` (Kafka envelope field), NOT GitHub's own X-GitHub-Delivery
+  // id — that delivery id only protects webhook ingestion in GitHub
+  // Service's in-memory deliveryStore and never reaches Chat Service.
+  // The @unique constraint is the actual idempotency mechanism: Kafka
+  // does not guarantee exactly-once delivery, so the consumer relies on
+  // a unique-constraint violation (not a prior SELECT, which would race
+  // under concurrent consumer instances) to detect and safely ignore a
+  // duplicate delivery of the same event. Null for every USER message
+  // and for any SYSTEM message created outside the Kafka path.
+  sourceEventId String? @unique
+
   // Monotonic tiebreaker for cursor pagination — createdAt alone can collide
   // at millisecond precision under concurrent sends, and UUID ids don't sort
   // in insertion order. sequence always does, with no floating-point/clock
@@ -268,4 +313,55 @@ model Message {
   @@index([roomId, sequence])
   @@index([channelId, sequence])
   @@index([parentMessageId])
+}
+
+// Owned by Chat Service. A DM conversation is identity-less beyond its
+// two participants — there is exactly one conversation for any given
+// unordered pair of users, ever, enforced by always storing the pair
+// with userAId < userBId (the smaller uuid string first; see
+// dm.service.ts's canonical ordering helper) so the unique constraint
+// below catches both request orderings as the same row. Like Message's
+// roomId/userId, userAId/userBId are plain fields verified over HTTP
+// against User Service, never Prisma relations — Chat Service must
+// never cascade-delete DM history as a side effect of a User row being
+// deleted by a service it doesn't own.
+model DmConversation {
+  id      String @id @default(uuid())
+  userAId String
+  userBId String
+
+  messages DmMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+// Mirrors Message's shape (content/edit/delete/sequence conventions)
+// but scoped to a DmConversation instead of a Room+Channel — deliberately
+// a separate model rather than reusing Message with a nullable roomId,
+// so a DM can never accidentally satisfy a room-scoped query and a
+// room message can never leak into a DM thread. senderId is always a
+// real participant of the parent conversation (enforced in dm.service.ts),
+// verified the same "never trust client input" way as everywhere else in
+// this codebase.
+model DmMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   DmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+
+  content String
+
+  sequence BigInt @default(autoincrement())
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  @@index([conversationId, sequence])
 }

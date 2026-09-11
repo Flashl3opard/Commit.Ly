@@ -15,6 +15,10 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("room.leave"), roomId: z.string().uuid() }).strict(),
   z.object({ type: z.literal("typing.start"), roomId: z.string().uuid() }).strict(),
   z.object({ type: z.literal("typing.stop"), roomId: z.string().uuid() }).strict(),
+  z.object({ type: z.literal("dm.join"), conversationId: z.string().uuid() }).strict(),
+  z.object({ type: z.literal("dm.leave"), conversationId: z.string().uuid() }).strict(),
+  z.object({ type: z.literal("dm.typing.start"), conversationId: z.string().uuid() }).strict(),
+  z.object({ type: z.literal("dm.typing.stop"), conversationId: z.string().uuid() }).strict(),
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -58,6 +62,18 @@ export type ErrorCode =
   | "not_found"
   | "internal_error";
 
+/** Wire shape of a DM message — mirrors WireMessage's fields that apply to a conversation instead of a room+channel. */
+export type DmWireMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string | null;
+  createdAt: string;
+  updatedAt: string;
+  editedAt: string | null;
+  deletedAt: string | null;
+};
+
 // ---- Server -> Client ----------------------------------------------------
 
 export type ServerMessage =
@@ -71,4 +87,11 @@ export type ServerMessage =
   | { type: "presence.left"; roomId: string; userId: string }
   | { type: "typing.started"; roomId: string; user: PresenceUser }
   | { type: "typing.stopped"; roomId: string; userId: string }
+  | { type: "dm.joined"; conversationId: string }
+  | { type: "dm.left"; conversationId: string }
+  | { type: "dm.message.created"; message: DmWireMessage }
+  | { type: "dm.message.updated"; message: DmWireMessage }
+  | { type: "dm.message.deleted"; message: DmWireMessage }
+  | { type: "dm.typing.started"; conversationId: string; userId: string }
+  | { type: "dm.typing.stopped"; conversationId: string; userId: string }
   | { type: "error"; code: ErrorCode; message: string };

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { updateCurrentUser } from "@/lib/api/users";
@@ -17,6 +17,56 @@ import { StepReview } from "@/components/onboarding/StepReview";
 
 const STEP_COUNT = 5;
 
+const DRAFT_STORAGE_KEY = "commitly-onboarding-draft";
+
+type OnboardingDraft = {
+  step: number;
+  displayName: string;
+  username: string;
+  avatarUrl: string;
+  bio: string;
+  role: string;
+  location: string;
+  skills: string[];
+};
+
+/**
+ * Connecting GitHub (StepGithub) is a real full-page navigation away to
+ * GitHub's OAuth consent screen and back — every in-memory useState value
+ * on this page is lost on that round trip, since the whole app remounts
+ * from scratch. Persisting the draft to sessionStorage (not localStorage —
+ * this is scoped to finishing the current onboarding attempt, not
+ * something that should survive into a future session) means returning
+ * from GitHub restores exactly what was typed before leaving, instead of
+ * silently discarding it.
+ */
+function loadDraft(): OnboardingDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as OnboardingDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(draft: OnboardingDraft): void {
+  try {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // Best-effort — a storage failure (private browsing, quota) just means
+    // the GitHub round-trip won't restore the draft; it's not fatal.
+  }
+}
+
+function clearDraft(): void {
+  try {
+    window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // Same reasoning as saveDraft.
+  }
+}
+
 function isValidUrl(value: string): boolean {
   try {
     new URL(value);
@@ -24,6 +74,35 @@ function isValidUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  displayName: "Display name",
+  username: "Username",
+  avatarUrl: "Avatar URL",
+  bio: "Bio",
+  role: "Role",
+  location: "Location",
+  skills: "Skills",
+};
+
+/**
+ * PATCH /users/me's 400 response carries Zod's flatten() shape
+ * ({ fieldErrors: Record<string, string[]> }) — this turns that into a
+ * specific, actionable message (e.g. "Avatar URL: Invalid url") instead
+ * of the generic "check your details" text that gave no clue which field
+ * was actually wrong.
+ */
+function describeValidationError(err: ApiError): string | null {
+  const details = err.details as { fieldErrors?: Record<string, string[]> } | undefined;
+  const fieldErrors = details?.fieldErrors;
+  if (!fieldErrors) return null;
+
+  const messages = Object.entries(fieldErrors)
+    .filter(([, msgs]) => msgs.length > 0)
+    .map(([field, msgs]) => `${FIELD_LABELS[field] ?? field}: ${msgs[0]}`);
+
+  return messages.length > 0 ? messages.join(" ") : null;
 }
 
 export default function OnboardingPage() {
@@ -41,16 +120,17 @@ function OnboardingPageContent() {
   const searchParams = useSearchParams();
 
   // Returning from the GitHub OAuth redirect lands back here with a fresh
-  // mount (in-progress step state is lost) — jump straight back to the
-  // GitHub step instead of dropping the user at step 0.
-  const [step, setStep] = useState(() => (searchParams.get("github") ? 3 : 0));
-  const [displayName, setDisplayName] = useState(() => user?.displayName ?? "");
-  const [username, setUsername] = useState(() => user?.username ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(() => user?.avatarUrl ?? "");
-  const [bio, setBio] = useState(() => user?.bio ?? "");
-  const [role, setRole] = useState(() => user?.role ?? "");
-  const [location, setLocation] = useState(() => user?.location ?? "");
-  const [skills, setSkills] = useState<string[]>(() => user?.skills ?? []);
+  // mount — the saved draft (see loadDraft above) restores whatever was
+  // typed across every earlier step, not just which step to resume on.
+  const savedDraft = loadDraft();
+  const [step, setStep] = useState(() => savedDraft?.step ?? (searchParams.get("github") ? 3 : 0));
+  const [displayName, setDisplayName] = useState(() => savedDraft?.displayName ?? user?.displayName ?? "");
+  const [username, setUsername] = useState(() => savedDraft?.username ?? user?.username ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(() => savedDraft?.avatarUrl ?? user?.avatarUrl ?? "");
+  const [bio, setBio] = useState(() => savedDraft?.bio ?? user?.bio ?? "");
+  const [role, setRole] = useState(() => savedDraft?.role ?? user?.role ?? "");
+  const [location, setLocation] = useState(() => savedDraft?.location ?? user?.location ?? "");
+  const [skills, setSkills] = useState<string[]>(() => savedDraft?.skills ?? user?.skills ?? []);
 
   const [identityErrors, setIdentityErrors] = useState<IdentityFieldErrors>({});
   const [aboutErrors, setAboutErrors] = useState<AboutFieldErrors>({});
@@ -58,6 +138,11 @@ function OnboardingPageContent() {
   const [submitting, setSubmitting] = useState(false);
 
   const draft = { displayName, username, avatarUrl, bio, role, location, skills };
+
+  useEffect(() => {
+    saveDraft({ step, ...draft });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, displayName, username, avatarUrl, bio, role, location, skills]);
 
   function validateIdentity(): IdentityFieldErrors {
     const errors: IdentityFieldErrors = {};
@@ -132,11 +217,12 @@ function OnboardingPageContent() {
         skills,
       });
       setUser(updatedUser);
+      clearDraft();
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          setFormError("Please check your details and try again.");
+          setFormError(describeValidationError(err) ?? "Please check your details and try again.");
         } else if (err.status === 409) {
           setFormError(err.message);
           setStep(0);

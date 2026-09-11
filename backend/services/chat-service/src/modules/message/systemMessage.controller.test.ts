@@ -6,6 +6,7 @@ process.env.JWT_SECRET ??= "test-secret-for-vitest";
 process.env.CLIENT_ORIGIN ??= "http://localhost:3000";
 process.env.INTERNAL_SERVICE_SECRET ??= "test-internal-secret";
 process.env.ROOM_SERVICE_URL ??= "http://localhost:4003";
+process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 
 const mockMessageCreate = vi.fn();
 vi.mock("../../config/prisma", () => ({
@@ -191,6 +192,31 @@ describe("POST /internal/rooms/:roomId/system-messages", () => {
         senderType: "SYSTEM",
         systemEventType: "github.push",
       }),
+    });
+  });
+
+  it("the internal HTTP endpoint never sets sourceEventId (that is exclusively the Kafka consumer path's concern)", async () => {
+    const now = new Date();
+    mockMessageCreate.mockResolvedValue({
+      id: "sys-msg-3",
+      roomId: ROOM_ID,
+      channelId: CHANNEL_ID,
+      userId: null,
+      senderType: "SYSTEM",
+      systemEventType: "github.push",
+      metadata: { githubRepositoryId: "1", githubUsername: "bob" },
+      content: "bob pushed 2 commits to main",
+      sourceEventId: null,
+      createdAt: now,
+      updatedAt: now,
+      editedAt: null,
+      deletedAt: null,
+    });
+
+    await send(validBody({ eventType: "github.push", metadata: { githubRepositoryId: "1", githubUsername: "bob" } }));
+
+    expect(mockMessageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sourceEventId: null }),
     });
   });
 

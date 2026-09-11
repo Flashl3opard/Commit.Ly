@@ -88,7 +88,7 @@ export function RepositoryPicker({ selectedId, onSelect }: RepositoryPickerProps
           href={installGithubAppUrl()}
           target="_blank"
           rel="noreferrer"
-          className="focus-ring mt-4 inline-flex items-center gap-2 rounded-lg border border-border-strong px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+          className="focus-ring mt-4 inline-flex items-center gap-2 rounded-lg border border-border-strong px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover-surface"
         >
           Install Commit.ly on GitHub
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -118,7 +118,7 @@ export function RepositoryPicker({ selectedId, onSelect }: RepositoryPickerProps
             aria-pressed={isSelected}
             className={`focus-ring flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
               index > 0 ? "border-t border-border" : ""
-            } ${isSelected ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}
+            } ${isSelected ? "hover-surface-strong" : "hover-surface-weak"}`}
           >
             <FolderGit2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-2" aria-hidden="true" />
             <div className="min-w-0 flex-1">

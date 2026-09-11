@@ -71,7 +71,7 @@ export function GithubConnectionSection({ returnTo }: { returnTo?: "onboarding" 
               disabled={disconnecting}
               title="Disconnect GitHub"
               aria-label="Disconnect GitHub"
-              className="focus-ring ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-white/5 disabled:opacity-60"
+              className="focus-ring ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover-surface disabled:opacity-60"
             >
               <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
               {disconnecting ? "Disconnecting…" : "Disconnect"}
@@ -82,7 +82,7 @@ export function GithubConnectionSection({ returnTo }: { returnTo?: "onboarding" 
             <p className="text-sm text-muted">Connect your GitHub account to verify your developer identity.</p>
             <a
               href={connectGithubUrl(returnTo)}
-              className="focus-ring mt-3 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+              className="focus-ring mt-3 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover-surface"
             >
               <GithubIcon className="h-4 w-4" />
               Connect GitHub

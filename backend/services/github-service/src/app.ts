@@ -5,6 +5,7 @@ import githubRoutes from "./modules/github/github.routes";
 import githubAppRoutes from "./modules/github-app/githubApp.routes";
 import internalRoutes from "./modules/internal/internal.routes";
 import githubWebhookRoutes from "./modules/github-webhook/githubWebhook.routes";
+import { isKafkaConfigured } from "./modules/kafka/kafka.config";
 
 const app = express();
 
@@ -31,6 +32,20 @@ app.use("/internal", internalRoutes);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
+});
+
+// Distinct from /health: GitHub webhook ingestion, OAuth, and the GitHub
+// App flows all work regardless of Kafka state, so /health never reflects
+// it. This is informational only, always 200 — never exposes broker
+// addresses or credentials. The producer connects lazily on first
+// publish (see kafka.client.ts), so "configured" here means "will
+// attempt to connect on the next webhook delivery," not "currently
+// holds an open connection."
+app.get("/ready", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    kafka: { configured: isKafkaConfigured() },
+  });
 });
 
 export default app;

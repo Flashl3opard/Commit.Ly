@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { getRoomMembership, getChannel, getDefaultChannel, RoomServiceClientError } from "../room/roomServiceClient";
 import { encodeCursor, decodeCursor, InvalidCursorError } from "./cursor";
@@ -248,21 +249,44 @@ export async function getThreadReplies(
   return records.map(toSafeMessage);
 }
 
+export type CreateSystemMessageResult = {
+  message: SafeMessage;
+  /**
+   * False when this call raced/duplicated a prior successful call for the
+   * same sourceEventId (a unique-constraint violation on that column was
+   * caught, not a fresh insert) — the Kafka consumer uses this to decide
+   * whether to broadcast: a duplicate must never re-broadcast, since the
+   * original create already did. Always true for the HTTP path (no
+   * sourceEventId, so no duplicate is possible there by construction).
+   */
+  created: boolean;
+};
+
 /**
  * Persists a GitHub activity system message. Callers (the internal
- * system-messages endpoint) are responsible for authenticating the request
- * and validating the input shape before reaching here — this function does
- * not re-verify room membership, since the "room" here is addressed by
- * GitHub Service's own repository->room lookup, not a Commit.ly user
- * session. No user-facing membership check applies to a system actor.
+ * system-messages endpoint, or the Kafka consumer — see kafka.consumer.ts)
+ * are responsible for authenticating/validating the input shape before
+ * reaching here — this function does not re-verify room membership, since
+ * the "room" here is addressed by GitHub Service's own repository->room
+ * lookup, not a Commit.ly user session. No user-facing membership check
+ * applies to a system actor.
  *
  * Never accepts or stores a userId — GitHub actors are never mapped to a
  * Commit.ly user, fake or otherwise.
+ *
+ * sourceEventId (optional) is the Kafka envelope's eventId — see the
+ * Message.sourceEventId schema comment for why this is a distinct concept
+ * from GitHub's own delivery id. When provided, this function is safe to
+ * call more than once with the same value: Kafka does not guarantee
+ * exactly-once delivery, so a duplicate is detected via the column's
+ * unique-constraint violation (a race-safe check, unlike a prior SELECT)
+ * and the existing row is returned instead of creating a second message.
  */
 export async function createSystemMessage(
   roomId: string,
   input: CreateSystemMessageInput,
-): Promise<SafeMessage> {
+  sourceEventId?: string,
+): Promise<CreateSystemMessageResult> {
   // GitHub events have no channel of their own to target — a push/PR/issue
   // isn't "in" any channel a human picked — so they always land in the
   // room's general channel, the same place they'd have appeared before
@@ -282,19 +306,33 @@ export async function createSystemMessage(
     throw new MessageServiceError("Room not found.", 404);
   }
 
-  const message = await prisma.message.create({
-    data: {
-      roomId,
-      channelId: generalChannel.id,
-      userId: null,
-      senderType: "SYSTEM",
-      systemEventType: input.eventType,
-      metadata: input.metadata,
-      content: input.content,
-    },
-  });
+  try {
+    const message = await prisma.message.create({
+      data: {
+        roomId,
+        channelId: generalChannel.id,
+        userId: null,
+        senderType: "SYSTEM",
+        systemEventType: input.eventType,
+        metadata: input.metadata,
+        content: input.content,
+        sourceEventId: sourceEventId ?? null,
+      },
+    });
 
-  return toSafeMessage(message);
+    return { message: toSafeMessage(message), created: true };
+  } catch (err) {
+    if (
+      sourceEventId &&
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002" &&
+      (err.meta?.target as string[] | undefined)?.includes("sourceEventId")
+    ) {
+      const existing = await prisma.message.findUniqueOrThrow({ where: { sourceEventId } });
+      return { message: toSafeMessage(existing), created: false };
+    }
+    throw err;
+  }
 }
 
 const SEARCH_RESULT_LIMIT = 25;
