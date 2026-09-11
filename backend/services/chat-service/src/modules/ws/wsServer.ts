@@ -1,7 +1,7 @@
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { authenticateUpgradeRequest, WsAuthError } from "./wsAuth";
-import { clientMessageSchema, type ServerMessage, type WireMessage } from "./protocol";
+import { clientMessageSchema, type ServerMessage, type WireMessage, type DmWireMessage } from "./protocol";
 import {
   addConnection,
   removeConnection,
@@ -10,9 +10,14 @@ import {
   sendTo,
   sendToUserInRoom,
   broadcastToRoom,
+  addDmConnection,
+  removeDmConnection,
+  removeSocketFromAllDmConversations,
+  broadcastToDmConversation,
 } from "./connectionManager";
 import { startTyping, stopTyping, clearAllTypingForUser } from "./typingTracker";
 import { getRoomMembership, RoomServiceClientError } from "../room/roomServiceClient";
+import { assertConversationParticipant, DmServiceError } from "../dm/dm.service";
 
 const ALLOWED_ORIGIN = process.env.CLIENT_ORIGIN;
 
@@ -110,6 +115,74 @@ function handleDisconnect(socket: AuthenticatedSocket) {
   for (const { roomId } of typingCleared) {
     broadcastToRoom(roomId, { type: "typing.stopped", roomId, userId: socket.userId });
   }
+
+  removeSocketFromAllDmConversations(socket);
+}
+
+/**
+ * Verifies the connection's user is a genuine participant of the DM
+ * conversation via dm.service.ts's ownership check — the same
+ * authoritative check the REST DM endpoints already use. Never trusts
+ * conversation participation supplied by the client.
+ */
+async function verifyDmParticipant(conversationId: string, userId: string): Promise<boolean> {
+  try {
+    await assertConversationParticipant(conversationId, userId);
+    return true;
+  } catch (err) {
+    if (err instanceof DmServiceError) return false;
+    throw err;
+  }
+}
+
+async function handleDmJoin(socket: AuthenticatedSocket, conversationId: string) {
+  const isParticipant = await verifyDmParticipant(conversationId, socket.userId);
+  if (!isParticipant) {
+    sendError(socket, "forbidden", "You do not have access to this conversation.");
+    return;
+  }
+
+  addDmConnection(conversationId, socket.userId, socket);
+  send(socket, { type: "dm.joined", conversationId });
+}
+
+function handleDmLeave(socket: AuthenticatedSocket, conversationId: string) {
+  removeDmConnection(conversationId, socket.userId, socket);
+  send(socket, { type: "dm.left", conversationId });
+
+  if (stopTyping(conversationId, socket.userId)) {
+    broadcastToDmConversation(conversationId, { type: "dm.typing.stopped", conversationId, userId: socket.userId });
+  }
+}
+
+async function handleDmTypingStart(socket: AuthenticatedSocket, conversationId: string) {
+  const isParticipant = await verifyDmParticipant(conversationId, socket.userId);
+  if (!isParticipant) {
+    sendError(socket, "forbidden", "You do not have access to this conversation.");
+    return;
+  }
+
+  const isNewTypingState = startTyping(conversationId, socket.userId, () => {
+    broadcastToDmConversation(conversationId, { type: "dm.typing.stopped", conversationId, userId: socket.userId });
+  });
+
+  if (isNewTypingState) {
+    broadcastToDmConversation(
+      conversationId,
+      { type: "dm.typing.started", conversationId, userId: socket.userId },
+      { exceptSocket: socket },
+    );
+  }
+}
+
+function handleDmTypingStop(socket: AuthenticatedSocket, conversationId: string) {
+  if (stopTyping(conversationId, socket.userId)) {
+    broadcastToDmConversation(
+      conversationId,
+      { type: "dm.typing.stopped", conversationId, userId: socket.userId },
+      { exceptSocket: socket },
+    );
+  }
 }
 
 function handleClientMessage(socket: AuthenticatedSocket, raw: string) {
@@ -140,6 +213,18 @@ function handleClientMessage(socket: AuthenticatedSocket, raw: string) {
       return;
     case "typing.stop":
       handleTypingStop(socket, message.roomId);
+      return;
+    case "dm.join":
+      void handleDmJoin(socket, message.conversationId);
+      return;
+    case "dm.leave":
+      handleDmLeave(socket, message.conversationId);
+      return;
+    case "dm.typing.start":
+      void handleDmTypingStart(socket, message.conversationId);
+      return;
+    case "dm.typing.stop":
+      handleDmTypingStop(socket, message.conversationId);
       return;
   }
 }
@@ -218,6 +303,20 @@ export function broadcastMessageEvent(
   message: WireMessage,
 ): void {
   broadcastToRoom(roomId, { type, message });
+}
+
+/**
+ * Broadcasts a DM message-lifecycle event to every connected socket of
+ * both conversation participants. Called from the REST DM controllers
+ * after a successful database write — same "REST writes, WS notifies"
+ * discipline as broadcastMessageEvent.
+ */
+export function broadcastDmMessageEvent(
+  conversationId: string,
+  type: "dm.message.created" | "dm.message.updated" | "dm.message.deleted",
+  message: DmWireMessage,
+): void {
+  broadcastToDmConversation(conversationId, { type, message });
 }
 
 export { sendToUserInRoom };

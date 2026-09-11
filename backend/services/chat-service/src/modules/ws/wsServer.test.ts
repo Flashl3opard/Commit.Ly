@@ -7,6 +7,7 @@ process.env.JWT_SECRET ??= "test-secret-for-vitest";
 process.env.CLIENT_ORIGIN ??= "http://localhost:3000";
 process.env.INTERNAL_SERVICE_SECRET ??= "test-internal-secret";
 process.env.ROOM_SERVICE_URL ??= "http://localhost:4003";
+process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 
 const mockGetRoomMembership = vi.fn();
 vi.mock("../room/roomServiceClient", async () => {

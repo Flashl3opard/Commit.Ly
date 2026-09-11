@@ -6,13 +6,15 @@ export type PublicProfile = {
   displayName: string | null;
   avatarUrl: string | null;
   customStatus: string | null;
+  githubVerified: boolean;
 };
 
 /**
  * Enriches a room member with safe public profile fields via User Service's
  * existing public GET /users/:id endpoint — the same public profile any
  * Commit.ly user can already look up, so no internal secret is needed here.
- * Never fetches or forwards email, passwordHash, or GitHub identity fields.
+ * githubVerified is a public boolean badge, not a secret identity field —
+ * never fetches or forwards email, passwordHash, githubId, or githubUsername.
  */
 export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
   const response = await fetch(`${internalConfig.userServiceUrl}/users/${encodeURIComponent(userId)}`);
@@ -39,5 +41,6 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
     customStatus: user.customStatus,
+    githubVerified: user.githubVerified,
   };
 }

@@ -98,7 +98,7 @@ export function Dialog({ open, onClose, title, description, children }: DialogPr
                 onClick={onClose}
                 title="Close"
                 aria-label="Close"
-                className="focus-ring shrink-0 rounded-lg p-1.5 text-muted-2 transition-colors hover:bg-white/5 hover:text-foreground"
+                className="focus-ring shrink-0 rounded-lg p-1.5 text-muted-2 transition-colors hover-surface hover:text-foreground"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

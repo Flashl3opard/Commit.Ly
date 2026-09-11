@@ -155,3 +155,103 @@ export function broadcastToRoom(roomId: RoomId, payload: ServerMessage, options?
     }
   }
 }
+
+/**
+ * Same registry shape as rooms above, keyed by conversationId instead of
+ * roomId — a DM conversation only ever has two participants, but reusing
+ * the identical per-user/multi-socket structure (rather than a simpler
+ * "two userIds" shape) means join/leave/broadcast/disconnect-cleanup all
+ * follow the exact same proven logic as rooms, just parameterized
+ * differently. Deliberately a separate Map, not a shared namespace with
+ * rooms — a roomId and a conversationId are never comparable, and mixing
+ * them into one keyspace would risk a collision-shaped bug for zero
+ * benefit.
+ */
+type ConversationId = string;
+
+const dmConnections = new Map<ConversationId, Map<UserId, Set<WebSocket>>>();
+const socketDmConversations = new Map<WebSocket, Set<ConversationId>>();
+
+function getOrCreateDmConversation(conversationId: ConversationId): Map<UserId, Set<WebSocket>> {
+  let conversation = dmConnections.get(conversationId);
+  if (!conversation) {
+    conversation = new Map();
+    dmConnections.set(conversationId, conversation);
+  }
+  return conversation;
+}
+
+export function addDmConnection(conversationId: ConversationId, userId: UserId, socket: WebSocket): void {
+  const conversation = getOrCreateDmConversation(conversationId);
+  let sockets = conversation.get(userId);
+  if (!sockets) {
+    sockets = new Set();
+    conversation.set(userId, sockets);
+  }
+  sockets.add(socket);
+
+  let conversations = socketDmConversations.get(socket);
+  if (!conversations) {
+    conversations = new Set();
+    socketDmConversations.set(socket, conversations);
+  }
+  conversations.add(conversationId);
+}
+
+export function removeDmConnection(conversationId: ConversationId, userId: UserId, socket: WebSocket): void {
+  const conversation = dmConnections.get(conversationId);
+  const sockets = conversation?.get(userId);
+  if (!conversation || !sockets) return;
+
+  sockets.delete(socket);
+  socketDmConversations.get(socket)?.delete(conversationId);
+
+  if (sockets.size === 0) {
+    conversation.delete(userId);
+    if (conversation.size === 0) {
+      dmConnections.delete(conversationId);
+    }
+  }
+}
+
+/** Removes a socket from every DM conversation it was in — called on disconnect, mirroring removeSocketFromAllRooms. */
+export function removeSocketFromAllDmConversations(socket: WebSocket): void {
+  const conversations = socketDmConversations.get(socket);
+  if (!conversations) return;
+
+  for (const conversationId of conversations) {
+    const conversation = dmConnections.get(conversationId);
+    if (!conversation) continue;
+
+    for (const [userId, sockets] of conversation) {
+      if (sockets.has(socket)) {
+        sockets.delete(socket);
+        if (sockets.size === 0) conversation.delete(userId);
+        break;
+      }
+    }
+
+    if (conversation.size === 0) {
+      dmConnections.delete(conversationId);
+    }
+  }
+
+  socketDmConversations.delete(socket);
+}
+
+/** Broadcasts to every connected socket of both participants in a DM conversation, optionally skipping one. */
+export function broadcastToDmConversation(
+  conversationId: ConversationId,
+  payload: ServerMessage,
+  options?: { exceptSocket?: WebSocket },
+): void {
+  const conversation = dmConnections.get(conversationId);
+  if (!conversation) return;
+
+  for (const sockets of conversation.values()) {
+    for (const socket of sockets) {
+      if (options?.exceptSocket === socket) continue;
+      safeSend(socket, payload);
+    }
+  }
+}

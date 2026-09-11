@@ -86,7 +86,7 @@ export default function RoomDetailsPage({ params }: { params: Promise<{ roomId: 
       <main className="flex flex-1 flex-col">
         <ErrorState
           title={current.status === "forbidden" ? "403 — Access denied." : "Room not found."}
-          description="It may have been deleted, or you may need a room code and password to join."
+          description="It may have been deleted, or you may need a room code to join."
           onBack={() => router.push("/rooms")}
         />
       </main>

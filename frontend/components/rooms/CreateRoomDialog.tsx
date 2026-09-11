@@ -14,8 +14,6 @@ type CreateRoomDialogProps = {
   onCreated: (room: Room) => void;
 };
 
-const MIN_PASSWORD_LENGTH = 6;
-
 function errorMessageFor(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 403) return "You do not have access to this repository.";
@@ -30,14 +28,12 @@ function errorMessageFor(err: unknown): string {
 
 export function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogProps) {
   const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
   const [selectedRepo, setSelectedRepo] = useState<GithubAppRepository | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function resetAndClose() {
     setName("");
-    setPassword("");
     setSelectedRepo(null);
     setError(null);
     onClose();
@@ -55,19 +51,13 @@ export function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogP
       setError("Select a repository for this room.");
       return;
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      return;
-    }
 
     setSubmitting(true);
     try {
       const { room } = await createRoom({
         name: name.trim(),
         githubRepositoryId: selectedRepo.id,
-        password,
       });
-      setPassword("");
       onCreated(room);
       resetAndClose();
     } catch (err) {
@@ -105,21 +95,6 @@ export function CreateRoomDialog({ open, onClose, onCreated }: CreateRoomDialogP
           <div className="mt-1.5">
             <RepositoryPicker selectedId={selectedRepo?.id ?? null} onSelect={setSelectedRepo} />
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="room-password" className="text-xs font-medium tracking-wide text-muted-2 uppercase">
-            Room password
-          </label>
-          <input
-            id="room-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            maxLength={128}
-            placeholder="Choose a password for teammates to join"
-            className="focus-ring mt-1.5 w-full rounded-lg border border-border-strong bg-background-2 px-3.5 py-2 text-sm text-foreground placeholder:text-muted-2"
-          />
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}

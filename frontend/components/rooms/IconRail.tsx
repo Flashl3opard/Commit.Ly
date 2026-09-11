@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   MessageSquare,
+  MessagesSquare,
   GitBranch,
   Users,
   CheckSquare,
@@ -13,11 +14,17 @@ import {
   Plus,
   Settings,
   LogIn,
+  Bell,
+  LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { CommitlyMark } from "@/components/ui/CommitlyMark";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRooms } from "@/lib/rooms/RoomsContext";
 import { useActiveModule } from "@/lib/rooms/ActiveModuleContext";
+import { useIncomingFriendRequestCount } from "@/lib/friends/useIncomingFriendRequestCount";
+import { useTheme } from "@/lib/theme/ThemeContext";
 import { CreateRoomDialog } from "./CreateRoomDialog";
 import { JoinRoomDialog } from "./JoinRoomDialog";
 import { RoomCreatedDialog } from "./RoomCreatedDialog";
@@ -55,7 +62,8 @@ export { MODULE_ICONS, MODULE_LABELS };
  * degrades to room-switcher-only when that context is absent.
  */
 export function IconRail() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { rooms, addRoom } = useRooms();
   const router = useRouter();
   const pathname = usePathname();
@@ -63,10 +71,18 @@ export function IconRail() {
   const activeRoomId = pathname?.match(/^\/rooms\/([^/]+)/)?.[1];
   const modules = activeModule?.modules ?? [];
   const activeModuleType = activeModule?.activeModuleType ?? null;
+  const isDmActive = pathname?.startsWith("/dm") ?? false;
+  const incomingFriendRequestCount = useIncomingFriendRequestCount(Boolean(user));
   const [profileOpen, setProfileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [createdRoom, setCreatedRoom] = useState<Room | null>(null);
+
+  async function handleLogout() {
+    setProfileOpen(false);
+    await logout();
+    router.replace("/login");
+  }
 
   function handleCreated(room: Room) {
     addRoom(room);
@@ -89,6 +105,10 @@ export function IconRail() {
       >
         <CommitlyMark className="h-6 w-6" />
       </Link>
+
+      <RailIconButton label="Direct messages" active={isDmActive} onClick={() => router.push("/dm")}>
+        <MessagesSquare className="h-4.5 w-4.5" aria-hidden="true" />
+      </RailIconButton>
 
       <nav aria-label="Rooms" className="flex w-full flex-col items-center gap-1.5 border-t border-room-sidebar-active pt-3">
         {rooms.map((room) => {
@@ -149,6 +169,26 @@ export function IconRail() {
         </RailIconButton>
       )}
 
+      <RailIconButton label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} onClick={toggleTheme}>
+        {theme === "dark" ? <Sun className="h-4.5 w-4.5" aria-hidden="true" /> : <Moon className="h-4.5 w-4.5" aria-hidden="true" />}
+      </RailIconButton>
+
+      {user && (
+        <Link
+          href="/dm?tab=requests"
+          title={incomingFriendRequestCount > 0 ? `${incomingFriendRequestCount} pending friend request${incomingFriendRequestCount === 1 ? "" : "s"}` : "Notifications"}
+          aria-label="Notifications"
+          className="focus-ring relative mt-1 flex h-10 w-10 items-center justify-center rounded-xl text-room-sidebar-muted transition-colors hover:bg-room-sidebar-active hover:text-room-sidebar-fg"
+        >
+          <Bell className="h-4.5 w-4.5" aria-hidden="true" />
+          {incomingFriendRequestCount > 0 && (
+            <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
+              {incomingFriendRequestCount > 9 ? "9+" : incomingFriendRequestCount}
+            </span>
+          )}
+        </Link>
+      )}
+
       {user && (
         <button
           type="button"
@@ -178,7 +218,7 @@ export function IconRail() {
             href="/profile"
             role="menuitem"
             onClick={() => setProfileOpen(false)}
-            className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
+            className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover-surface"
           >
             Profile
           </Link>
@@ -186,10 +226,20 @@ export function IconRail() {
             href="/profile/edit"
             role="menuitem"
             onClick={() => setProfileOpen(false)}
-            className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-white/5"
+            className="focus-ring block rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover-surface"
           >
             Edit profile
           </Link>
+          <div className="my-1 h-px bg-room-sidebar-active" aria-hidden="true" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleLogout}
+            className="focus-ring flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger transition-colors hover-surface"
+          >
+            <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+            Logout
+          </button>
         </div>
       )}
 

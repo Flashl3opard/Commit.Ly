@@ -110,7 +110,7 @@ export function CustomizeRoomDialog({ open, onClose, room, modules, onModuleUpse
                     disabled={busy}
                     title={module_.enabled ? "Disable module" : "Enable module"}
                     aria-label={module_.enabled ? "Disable module" : "Enable module"}
-                    className="focus-ring shrink-0 rounded-md p-1.5 text-muted-2 transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-50"
+                    className="focus-ring shrink-0 rounded-md p-1.5 text-muted-2 transition-colors hover-surface hover:text-foreground disabled:opacity-50"
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Power className="h-3.5 w-3.5" aria-hidden="true" />}
                   </button>
@@ -144,7 +144,7 @@ export function CustomizeRoomDialog({ open, onClose, room, modules, onModuleUpse
                     type="button"
                     onClick={() => handleAdd(type)}
                     disabled={busy}
-                    className="focus-ring flex w-full items-center gap-2.5 rounded-lg border border-dashed border-border-strong px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-50"
+                    className="focus-ring flex w-full items-center gap-2.5 rounded-lg border border-dashed border-border-strong px-3 py-2 text-left text-sm text-muted transition-colors hover-surface hover:text-foreground disabled:opacity-50"
                   >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />}
                     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />

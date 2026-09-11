@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import userRoutes from "./modules/user/user.routes";
+import friendRoutes from "./modules/friend/friend.routes";
 import internalRoutes from "./modules/internal/internal.routes";
 
 const app = express();
@@ -15,6 +16,10 @@ app.use(
   })
 );
 
+// friendRoutes must be mounted before userRoutes — otherwise its literal
+// segments (/search, /friends, /friend-requests) would be swallowed by
+// userRoutes' GET /users/:id, which matches any single path segment.
+app.use("/users", friendRoutes);
 app.use("/users", userRoutes);
 app.use("/internal", internalRoutes);
 

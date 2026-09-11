@@ -1,14 +1,19 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRedirectByAuth } from "@/lib/auth/useRedirectByAuth";
-import { AppNavbar } from "./AppNavbar";
+import { IconRail } from "@/components/rooms/IconRail";
+import { Drawer } from "./Drawer";
+import { RoomSidebarContext } from "@/lib/rooms/RoomSidebarContext";
 
 /**
  * Shared authenticated-route wrapper: redirects to /home when unauthenticated,
- * renders nothing while auth status is resolving, and provides the app navbar
- * once a user is available.
+ * renders nothing while auth status is resolving, and provides the icon
+ * rail (the single outermost navigation element for every logged-in page,
+ * not just /rooms/*) once a user is available. The standalone top navbar
+ * was removed — Rooms/Messages/GitHub/Activity/People lived only there,
+ * and profile/notifications/DM entry points now live in the rail itself.
  *
  * `fillHeight` switches the outer container from `min-h-screen` (page grows
  * with content, e.g. profile/dashboard) to a fixed `h-screen` with the
@@ -22,6 +27,7 @@ export function AppShell({ children, fillHeight = false }: { children: ReactNode
     whenIncompleteProfile: "/onboarding",
   });
   const { user } = useAuth();
+  const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   if (status === "loading" || status === "unauthenticated" || !user) {
     return (
@@ -32,11 +38,20 @@ export function AppShell({ children, fillHeight = false }: { children: ReactNode
   }
 
   return (
-    <div
-      className={`flex flex-col bg-background ${fillHeight ? "h-screen" : "min-h-screen flex-1"}`}
-    >
-      <AppNavbar user={user} />
-      <div className={fillHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "flex-1"}>{children}</div>
-    </div>
+    <RoomSidebarContext.Provider value={{ openMobileSidebar: () => setMobileRailOpen(true) }}>
+      <div className={`flex bg-background ${fillHeight ? "h-screen" : "min-h-screen"}`}>
+        <div className="hidden sm:flex sm:shrink-0">
+          <IconRail />
+        </div>
+
+        <div className="sm:hidden">
+          <Drawer side="left" open={mobileRailOpen} onClose={() => setMobileRailOpen(false)}>
+            <IconRail />
+          </Drawer>
+        </div>
+
+        <div className={fillHeight ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "flex-1"}>{children}</div>
+      </div>
+    </RoomSidebarContext.Provider>
   );
 }

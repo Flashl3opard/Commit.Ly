@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 process.env.INTERNAL_SERVICE_SECRET ??= "test-internal-secret";
 process.env.ROOM_SERVICE_URL ??= "http://localhost:4003";
+process.env.USER_SERVICE_URL ??= "http://localhost:4001";
 
 describe("getRoomMembership", () => {
   const originalFetch = global.fetch;

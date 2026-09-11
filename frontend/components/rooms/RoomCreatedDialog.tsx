@@ -46,7 +46,7 @@ export function RoomCreatedDialog({ room, onClose }: RoomCreatedDialogProps) {
               type="button"
               onClick={handleCopy}
               aria-live="polite"
-              className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
+              className="focus-ring inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover-surface"
             >
               {copied ? (
                 <>

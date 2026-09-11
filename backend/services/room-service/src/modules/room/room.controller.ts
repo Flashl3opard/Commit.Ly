@@ -4,6 +4,7 @@ import {
   createRoom,
   joinRoom,
   getRoomsForUser,
+  getSharedRooms,
   getRoomDetails,
   leaveRoom,
   deleteRoom,
@@ -56,6 +57,14 @@ export async function listMine(req: Request, res: Response) {
   if (!userId) return res.status(401).json({ error: "Authentication required." });
 
   const rooms = await getRoomsForUser(userId);
+  return res.status(200).json({ rooms });
+}
+
+export async function listShared(req: Request<{ userId: string }>, res: Response) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+  const rooms = await getSharedRooms(userId, req.params.userId);
   return res.status(200).json({ rooms });
 }
 

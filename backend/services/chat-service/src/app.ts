@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { channelMessagesRouter, roomMessagesRouter } from "./modules/message/message.routes";
 import { messageByIdRouter } from "./modules/message/messageById.routes";
 import systemMessageRoutes from "./modules/message/systemMessage.routes";
+import { conversationsRouter, messagesRouter as dmMessagesRouter } from "./modules/dm/dm.routes";
 
 const app = express();
 
@@ -21,6 +22,8 @@ app.use("/internal", systemMessageRoutes);
 app.use("/rooms/:roomId/channels/:channelId/messages", channelMessagesRouter);
 app.use("/rooms/:roomId/messages", roomMessagesRouter);
 app.use("/messages/:messageId", messageByIdRouter);
+app.use("/dm/conversations", conversationsRouter);
+app.use("/dm/messages", dmMessagesRouter);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });

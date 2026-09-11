@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pencil, Trash2, Check, X, Loader2, Copy, Smile, Reply, MessageSquare } from "lucide-react";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { RoomOwnerMark } from "@/components/ui/RoomOwnerMark";
+import { GithubVerifiedBadge } from "@/components/ui/GithubVerifiedBadge";
 import { GithubActivityCard } from "./activity/GithubActivityCard";
 import { renderMessageContent } from "./mentionRendering";
 import type { Message } from "@/lib/api/chat";
@@ -111,6 +112,7 @@ export function MessageItem({
             <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
               {senderName}
               {sender?.role === "OWNER" && <RoomOwnerMark />}
+              {sender?.githubVerified && <GithubVerifiedBadge />}
             </span>
             <span className="text-xs text-muted-2">{formatTimestamp(message.createdAt)}</span>
           </div>
