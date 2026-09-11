@@ -258,6 +258,19 @@ model Message {
   // the raw GitHub webhook payload.
   metadata Json?
 
+  // Present only on SYSTEM messages created from a Kafka-delivered event
+  // (see chat-service/src/modules/kafka). This is the normalized event's
+  // `eventId` (Kafka envelope field), NOT GitHub's own X-GitHub-Delivery
+  // id — that delivery id only protects webhook ingestion in GitHub
+  // Service's in-memory deliveryStore and never reaches Chat Service.
+  // The @unique constraint is the actual idempotency mechanism: Kafka
+  // does not guarantee exactly-once delivery, so the consumer relies on
+  // a unique-constraint violation (not a prior SELECT, which would race
+  // under concurrent consumer instances) to detect and safely ignore a
+  // duplicate delivery of the same event. Null for every USER message
+  // and for any SYSTEM message created outside the Kafka path.
+  sourceEventId String? @unique
+
   // Monotonic tiebreaker for cursor pagination — createdAt alone can collide
   // at millisecond precision under concurrent sends, and UUID ids don't sort
   // in insertion order. sequence always does, with no floating-point/clock

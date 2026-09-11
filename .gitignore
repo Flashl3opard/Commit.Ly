@@ -2,3 +2,8 @@ cookies.txt
 docs/superpowers/
 .superpowers/
 .claude/
+
+# Local Kafka binary distribution (see backend/KAFKA_SETUP.md) — downloaded
+# per-developer, never committed. Includes its own log/data directories
+# once the broker has run locally.
+tools/

@@ -23,7 +23,7 @@ export async function createSystemMessageHandler(req: Request<{ roomId: string }
     return res.status(400).json({ error: "Invalid system message payload", details: parsed.error.flatten() });
   }
 
-  const message = await createSystemMessage(req.params.roomId, parsed.data);
+  const { message } = await createSystemMessage(req.params.roomId, parsed.data);
   broadcastMessageEvent(message.roomId, "message.created", message);
 
   return res.status(201).json({ message });
